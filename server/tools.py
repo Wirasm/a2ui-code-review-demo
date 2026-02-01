@@ -231,11 +231,44 @@ def post_github_review(
             # No position data for this file
             comments.append({"path": path, "body": comment_body, "subject_type": "file"})
 
+    # Build a structured review body from findings
+    severity_counts: dict[str, int] = {"error": 0, "warning": 0, "info": 0}
+    files_affected: set[str] = set()
+    for finding in findings:
+        sev = finding.get("severity_icon", finding.get("severity", "info"))
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        fp = finding.get("file_path", "")
+        if ":" in fp:
+            fp = fp.rsplit(":", 1)[0]
+        files_affected.add(fp)
+
+    total = len(findings)
+    body_lines = [
+        "## AI Code Review",
+        "",
+        f"**{total} issue{'s' if total != 1 else ''}** found across **{len(files_affected)} file{'s' if len(files_affected) != 1 else ''}**",
+        "",
+        "| Severity | Count |",
+        "| --- | --- |",
+    ]
+    if severity_counts.get("error"):
+        body_lines.append(f"| ❌ Critical | {severity_counts['error']} |")
+    if severity_counts.get("warning"):
+        body_lines.append(f"| ⚠️ Warning | {severity_counts['warning']} |")
+    if severity_counts.get("info"):
+        body_lines.append(f"| ℹ️ Info | {severity_counts['info']} |")
+
+    body_lines += [
+        "",
+        "See inline comments below for details.",
+    ]
+    formatted_body = "\n".join(body_lines)
+
     review_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
     event_value = event if event in ("APPROVE", "REQUEST_CHANGES", "COMMENT") else "COMMENT"
 
     payload: dict[str, str | list[dict[str, str | int]]] = {
-        "body": review_body,
+        "body": formatted_body,
         "event": event_value,
     }
     if comments:
