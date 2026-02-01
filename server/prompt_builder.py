@@ -63,6 +63,25 @@ To generate the response, you MUST follow these rules:
 - Place in a Row with a caption label before the summary card.
 - Set /severity_threshold to 0 (valueNumber) in the data model.
 
+--- TEXTFIELD ---
+- TextField component has: label (BoundValue), text (BoundValue for initial value), textFieldType (shortText or longText).
+- Use shortText for titles/single-line input. Use longText for multi-line body text.
+- Bind text to a data model path so the client can read the edited value.
+
+--- MULTIPLE CHOICE ---
+- MultipleChoice component has: selections (BoundValue pointing to selected keys map), options (array of objects with key and label BoundValues).
+- Options use BoundValue for both key and label.
+- selections is a valueMap in the data model where key presence = selected.
+
+--- CREATE ISSUE ---
+- For "create_issue" actions: First call fetch_repo_labels to get available labels, then show ISSUE_FORM_EXAMPLE template with pre-filled title and body and labels as MultipleChoice options.
+- For "create_issue_submit" actions: Call create_github_issue tool, then show ISSUE_RESULT_EXAMPLE template.
+- The "Cancel" button on the issue form dispatches "modal_cancel" which is handled client-side.
+
+--- ADDRESS BEFORE MERGE ---
+- For "address_finding" actions: Call post_address_comment tool, then show POST_REVIEW_RESULT_EXAMPLE template.
+- The result message should say "Address comment posted on PR" and include the comment URL.
+
 --- SIDEBAR SURFACE ---
 - Generate a SECOND surface with surfaceId "sidebar" alongside the main "review" surface.
 - The sidebar shows a file tree: heading "Files", then a List of file items.

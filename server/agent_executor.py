@@ -88,6 +88,40 @@ class CodeReviewAgentExecutor(AgentExecutor):
                     f"event='COMMENT'. "
                     "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
                 )
+            elif action == "create_issue":
+                finding_desc = ctx.get("description", "")
+                finding_path = ctx.get("filePath", "")
+                pr_url = ctx.get("prUrl", "")
+                query = (
+                    f"The user wants to create a GitHub issue from a finding. "
+                    f"First call `fetch_repo_labels` with pr_url='{pr_url}' to get available labels. "
+                    f"Then show an issue creation form using the ISSUE_FORM_EXAMPLE template. "
+                    f"Pre-fill title with 'Fix: {finding_desc[:60]}', "
+                    f"body with 'Found during code review.\\n\\n{finding_desc}\\n\\nFile: {finding_path}'. "
+                    f"Include the fetched labels as MultipleChoice options. "
+                    f"Set pr_url_raw to '{pr_url}'."
+                )
+            elif action == "create_issue_submit":
+                pr_url = ctx.get("prUrl", "")
+                title = ctx.get("title", "")
+                body = ctx.get("body", "")
+                labels = ctx.get("labels", "[]")
+                query = (
+                    f"The user wants to submit a GitHub issue. "
+                    f"Call the `create_github_issue` tool with pr_url='{pr_url}', "
+                    f"title='{title}', body='{body}', labels_json='{labels}'. "
+                    "After creating, show a confirmation using the ISSUE_RESULT_EXAMPLE template."
+                )
+            elif action == "address_finding":
+                pr_url = ctx.get("prUrl", "")
+                description = ctx.get("description", "")
+                file_path = ctx.get("filePath", "")
+                query = (
+                    f"The user wants to mark a finding as 'must address before merge'. "
+                    f"Call the `post_address_comment` tool with pr_url='{pr_url}', "
+                    f"finding_description='{description}', file_path='{file_path}'. "
+                    "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
+                )
             else:
                 query = f"User action: {action} with context: {ctx}"
         else:

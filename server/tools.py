@@ -300,6 +300,177 @@ def post_github_review(
     })
 
 
+def create_github_issue(
+    pr_url: str,
+    title: str,
+    body: str,
+    labels_json: str,
+    tool_context: ToolContext,
+) -> str:
+    """Create a GitHub issue on the repository associated with a pull request.
+
+    Args:
+        pr_url: Full GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+        title: Issue title
+        body: Issue body text
+        labels_json: JSON array string of label names (e.g., '["bug", "security"]')
+
+    Returns:
+        JSON string with success status, issue URL, and issue number, or error details.
+    """
+    logger.info("--- TOOL CALLED: create_github_issue ---")
+    logger.info(f"  - PR URL: {pr_url}, Title: {title[:80]}")
+
+    match = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    if not match:
+        return json.dumps({"error": f"Invalid GitHub PR URL: {pr_url}"})
+
+    owner, repo, _pr_number = match.groups()
+    token = os.getenv("GITHUB_TOKEN", "")
+
+    if not token:
+        return json.dumps({"error": "GITHUB_TOKEN environment variable is not set."})
+
+    headers: dict[str, str] = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    try:
+        labels = json.loads(labels_json) if labels_json else []
+    except json.JSONDecodeError:
+        labels = []
+
+    payload: dict[str, str | list[str]] = {"title": title, "body": body}
+    if labels:
+        payload["labels"] = labels
+
+    issues_url = f"https://api.github.com/repos/{owner}/{repo}/issues"
+
+    try:
+        resp = requests.post(issues_url, headers=headers, json=payload, timeout=30)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        error_detail = ""
+        resp_obj = getattr(e, "response", None)
+        if resp_obj is not None:
+            error_detail = f" Response: {resp_obj.text[:500]}"
+        logger.error(f"  - Failed to create issue: {e}{error_detail}")
+        return json.dumps({"error": f"Failed to create issue: {e}{error_detail}"})
+
+    result = resp.json()
+    html_url = result.get("html_url", "")
+    issue_number = result.get("number", 0)
+    logger.info(f"  - Success: Issue #{issue_number} created at {html_url}")
+    return json.dumps({
+        "success": True,
+        "issue_url": html_url,
+        "issue_number": issue_number,
+    })
+
+
+def post_address_comment(
+    pr_url: str,
+    finding_description: str,
+    file_path: str,
+    tool_context: ToolContext,
+) -> str:
+    """Post a 'must address before merge' comment on a GitHub pull request.
+
+    Args:
+        pr_url: Full GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+        finding_description: Description of the finding that must be addressed
+        file_path: File path where the finding was identified
+
+    Returns:
+        JSON string with success status and comment URL, or error details.
+    """
+    logger.info("--- TOOL CALLED: post_address_comment ---")
+    logger.info(f"  - PR URL: {pr_url}, File: {file_path}")
+
+    match = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    if not match:
+        return json.dumps({"error": f"Invalid GitHub PR URL: {pr_url}"})
+
+    owner, repo, pr_number = match.groups()
+    token = os.getenv("GITHUB_TOKEN", "")
+
+    if not token:
+        return json.dumps({"error": "GITHUB_TOKEN environment variable is not set."})
+
+    headers: dict[str, str] = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    comment_body = (
+        f"**Must address before merge:**\n\n"
+        f"{finding_description}\n\n"
+        f"File: {file_path}"
+    )
+
+    comments_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+
+    try:
+        resp = requests.post(comments_url, headers=headers, json={"body": comment_body}, timeout=30)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        error_detail = ""
+        resp_obj = getattr(e, "response", None)
+        if resp_obj is not None:
+            error_detail = f" Response: {resp_obj.text[:500]}"
+        logger.error(f"  - Failed to post comment: {e}{error_detail}")
+        return json.dumps({"error": f"Failed to post comment: {e}{error_detail}"})
+
+    result = resp.json()
+    html_url = result.get("html_url", "")
+    logger.info(f"  - Success: Comment posted at {html_url}")
+    return json.dumps({
+        "success": True,
+        "comment_url": html_url,
+    })
+
+
+def fetch_repo_labels(pr_url: str, tool_context: ToolContext) -> str:
+    """Fetch available labels for the repository associated with a pull request.
+
+    Args:
+        pr_url: Full GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+
+    Returns:
+        JSON array string of label objects with name and color fields.
+    """
+    logger.info("--- TOOL CALLED: fetch_repo_labels ---")
+    logger.info(f"  - PR URL: {pr_url}")
+
+    match = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    if not match:
+        return json.dumps({"error": f"Invalid GitHub PR URL: {pr_url}"})
+
+    owner, repo, _pr_number = match.groups()
+    token = os.getenv("GITHUB_TOKEN", "")
+
+    headers: dict[str, str] = {"X-GitHub-Api-Version": "2022-11-28"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    headers["Accept"] = "application/vnd.github+json"
+
+    labels_url = f"https://api.github.com/repos/{owner}/{repo}/labels"
+
+    try:
+        resp = requests.get(labels_url, headers=headers, timeout=15)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"  - Failed to fetch labels: {e}")
+        return json.dumps([])
+
+    labels = [{"name": l["name"], "color": l.get("color", "")} for l in resp.json()]
+    logger.info(f"  - Success: Found {len(labels)} labels")
+    return json.dumps(labels)
+
+
 def _fetch_pr_files_fallback(
     owner: str, repo: str, pr_number: str, headers: dict[str, str], meta: dict,
 ) -> str:

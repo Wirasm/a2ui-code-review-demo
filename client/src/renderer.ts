@@ -77,6 +77,12 @@ export function renderComponent(
     case 'Slider':
       content = renderSlider(props, surface, id, scope);
       break;
+    case 'TextField':
+      content = renderTextField(props, surface, id, scope);
+      break;
+    case 'MultipleChoice':
+      content = renderMultipleChoice(props, surface, id, scope);
+      break;
     default:
       content = html`<div class="a2ui-unknown">[Unknown: ${type}]</div>`;
   }
@@ -554,6 +560,137 @@ function renderSlider(
     <div class="a2ui-slider">
       <input type="range" min=${min} max=${max} .value=${String(value)} @input=${handleInput} />
       <span class="a2ui-slider__value">${label}</span>
+    </div>
+  `;
+}
+
+function renderTextField(
+  props: Record<string, unknown>,
+  surface: Surface,
+  componentId: string,
+  scope?: string,
+): TemplateResult {
+  const labelBinding = props.label as BoundValue | undefined;
+  const textBinding = props.text as BoundValue | undefined;
+  const fieldType = (props.textFieldType as string) || 'shortText';
+  const label = labelBinding ? String(resolveValue(labelBinding, surface.data, scope) ?? '') : '';
+  const value = textBinding ? String(resolveValue(textBinding, surface.data, scope) ?? '') : '';
+
+  const handleInput = (e: Event) => {
+    const newValue = (e.target as HTMLInputElement | HTMLTextAreaElement).value;
+
+    if (textBinding && 'path' in textBinding) {
+      const p = textBinding.path;
+      const fullPath = p.startsWith('/') ? p : (scope ? `${scope}/${p}` : p);
+      const segments = fullPath.replace(/^\//, '').split('/').filter(Boolean);
+      let current: Record<string, unknown> = surface.data;
+      for (let i = 0; i < segments.length - 1; i++) {
+        const seg = segments[i];
+        if (current[seg] == null || typeof current[seg] !== 'object') {
+          current[seg] = {};
+        }
+        current = current[seg] as Record<string, unknown>;
+      }
+      current[segments[segments.length - 1]] = newValue;
+    }
+
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        name: 'text_change',
+        sourceComponentId: componentId,
+        surfaceId: surface.surfaceId,
+        context: { value: newValue },
+      },
+    });
+    document.dispatchEvent(event);
+  };
+
+  const inputEl = fieldType === 'longText'
+    ? html`<textarea class="a2ui-textfield__input" .value=${value} @input=${handleInput}></textarea>`
+    : html`<input type="text" class="a2ui-textfield__input" .value=${value} @input=${handleInput} />`;
+
+  return html`
+    <div class="a2ui-textfield">
+      ${label ? html`<label class="a2ui-textfield__label">${label}</label>` : nothing}
+      ${inputEl}
+    </div>
+  `;
+}
+
+function renderMultipleChoice(
+  props: Record<string, unknown>,
+  surface: Surface,
+  componentId: string,
+  scope?: string,
+): TemplateResult {
+  const selectionsBinding = props.selections as BoundValue | undefined;
+  const options = props.options as Array<{key: BoundValue; label: BoundValue}> | undefined;
+  const maxSelections = props.maxAllowedSelections as number | undefined;
+
+  const selections = selectionsBinding
+    ? (resolveValue(selectionsBinding, surface.data, scope) as Record<string, unknown> | null) ?? {}
+    : {};
+
+  if (!options || options.length === 0) {
+    return html`<div class="a2ui-multiple-choice"></div>`;
+  }
+
+  const handleToggle = (optionKey: string, checked: boolean) => {
+    if (selectionsBinding && 'path' in selectionsBinding) {
+      const p = selectionsBinding.path;
+      const fullPath = p.startsWith('/') ? p : (scope ? `${scope}/${p}` : p);
+      const segments = fullPath.replace(/^\//, '').split('/').filter(Boolean);
+      let current: Record<string, unknown> = surface.data;
+      for (let i = 0; i < segments.length - 1; i++) {
+        const seg = segments[i];
+        if (current[seg] == null || typeof current[seg] !== 'object') {
+          current[seg] = {};
+        }
+        current = current[seg] as Record<string, unknown>;
+      }
+      const selectionsObj = (current[segments[segments.length - 1]] ?? {}) as Record<string, unknown>;
+
+      if (checked) {
+        if (maxSelections) {
+          const currentCount = Object.keys(selectionsObj).length;
+          if (currentCount >= maxSelections) return;
+        }
+        selectionsObj[optionKey] = true;
+      } else {
+        delete selectionsObj[optionKey];
+      }
+      current[segments[segments.length - 1]] = selectionsObj;
+    }
+
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        name: 'choice_change',
+        sourceComponentId: componentId,
+        surfaceId: surface.surfaceId,
+        context: { key: optionKey, selected: checked },
+      },
+    });
+    document.dispatchEvent(event);
+  };
+
+  return html`
+    <div class="a2ui-multiple-choice">
+      ${options.map((opt) => {
+        const optKey = String(resolveValue(opt.key, surface.data, scope) ?? '');
+        const optLabel = String(resolveValue(opt.label, surface.data, scope) ?? '');
+        const isSelected = optKey in (selections as Record<string, unknown>);
+        return html`
+          <label class="a2ui-choice">
+            <input type="checkbox" .checked=${isSelected}
+              @change=${(e: Event) => handleToggle(optKey, (e.target as HTMLInputElement).checked)} />
+            <span>${optLabel}</span>
+          </label>
+        `;
+      })}
     </div>
   `;
 }

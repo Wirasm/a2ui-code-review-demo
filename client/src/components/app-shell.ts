@@ -11,7 +11,7 @@ const SERVER_URL = 'http://localhost:10002';
 
 interface ReviewHistoryEntry {
   timestamp: Date;
-  commentCount: string;
+  message: string;
   reviewUrl: string;
 }
 
@@ -62,7 +62,7 @@ export class AppShell extends LitElement {
     };
 
     // Client-only actions that don't need a server round-trip
-    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel' || detail.name === 'tab_switch' || detail.name === 'slider_change') {
+    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel' || detail.name === 'tab_switch' || detail.name === 'slider_change' || detail.name === 'text_change' || detail.name === 'choice_change') {
       if (detail.name === 'toggle_finding') {
         this.updateSelectedCount(detail.surfaceId);
       }
@@ -230,7 +230,7 @@ export class AppShell extends LitElement {
 
       // Detect post result: the review surface root changed to "result-col"
       const updatedReview = this.surfaceManager.getSurface('review');
-      if (updatedReview && updatedReview.root === 'result-col' && snapshot) {
+      if (updatedReview && (updatedReview.root === 'result-col' || updatedReview.root === 'issue-result-col') && snapshot) {
         // Extract toast data before restoring
         const message = String(updatedReview.data.result_message ?? 'Review posted');
         const link = String(updatedReview.data.result_link ?? '');
@@ -245,10 +245,9 @@ export class AppShell extends LitElement {
 
         // Record in review history only on successful posts (link is a GitHub URL)
         if (link.includes('github.com')) {
-          const countMatch = message.match(/(\d+)/);
           this.reviewHistory = [...this.reviewHistory, {
             timestamp: new Date(),
-            commentCount: countMatch ? countMatch[1] : '?',
+            message,
             reviewUrl: link,
           }];
         }
@@ -415,7 +414,7 @@ export class AppShell extends LitElement {
         <div class="review-history">
           <button class="review-history__toggle" @click=${() => { this.historyExpanded = !this.historyExpanded; }}>
             <span class="material-icons">${this.historyExpanded ? 'expand_more' : 'chevron_right'}</span>
-            ${this.reviewHistory.length} review${this.reviewHistory.length !== 1 ? 's' : ''} posted
+            ${this.reviewHistory.length} action${this.reviewHistory.length !== 1 ? 's' : ''} taken
           </button>
           ${this.historyExpanded ? html`
             <div class="review-history__list">
@@ -423,7 +422,7 @@ export class AppShell extends LitElement {
                 <div class="review-history__item">
                   <span class="material-icons">check_circle</span>
                   <div class="review-history__meta">
-                    <div class="review-history__count">${entry.commentCount} comments posted</div>
+                    <div class="review-history__count">${entry.message}</div>
                     <div class="review-history__time">${entry.timestamp.toLocaleTimeString()}</div>
                   </div>
                   ${entry.reviewUrl ? html`
