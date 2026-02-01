@@ -1,6 +1,6 @@
 # A2UI Code Review Agent
 
-A demo showcasing [AG UI (Agent-to-UI)](https://docs.a2ui.org) — a protocol that lets AI agents generate rich, interactive UIs through declarative JSON. No client-side code generation, no iframes, no sandboxing. The agent describes *what* the UI should be, and the client renders it natively.
+A demo showcasing [A2UI (Agent-to-UI)](https://a2ui.org) — a Google protocol that lets AI agents generate rich, interactive UIs through declarative JSON. No client-side code generation, no iframes, no sandboxing. The agent describes *what* the UI should be, and the client renders it natively.
 
 This demo implements a GitHub PR code review agent. You paste a PR URL, the agent fetches the diff, analyzes it with an LLM, and renders an interactive review dashboard with severity-colored findings, diff blocks, and action buttons — all generated as A2UI JSON by the model.
 
