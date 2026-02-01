@@ -58,27 +58,32 @@ class CodeReviewAgentExecutor(AgentExecutor):
             ctx = ui_event_part.get("context", {})
             logger.info(f"UI action: {action}, context: {ctx}")
 
-            if action == "address_finding":
-                finding_id = ctx.get("findingId", "unknown")
-                file_path = ctx.get("filePath", "unknown file")
-                query = (
-                    f"The user chose to ADDRESS finding #{finding_id} in {file_path}. "
-                    "Acknowledge this decision with a brief confirmation using the FINDING_RESPONSE_EXAMPLE template."
-                )
-            elif action == "dismiss_finding":
-                finding_id = ctx.get("findingId", "unknown")
-                file_path = ctx.get("filePath", "unknown file")
-                query = (
-                    f"The user DISMISSED finding #{finding_id} in {file_path}. "
-                    "Acknowledge this with a brief confirmation using the FINDING_RESPONSE_EXAMPLE template."
-                )
-            elif action == "post_review":
+            if action == "post_review":
                 pr_url = ctx.get("prUrl", "")
                 findings = ctx.get("findings", "[]")
                 query = (
                     f"The user wants to post your review findings to the GitHub PR. "
                     f"Call the `post_github_review` tool with pr_url='{pr_url}', "
                     f"review_body='AI Code Review - automated findings from analysis', "
+                    f"findings_json='{findings}', "
+                    f"event='COMMENT'. "
+                    "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
+                )
+            elif action == "toggle_finding":
+                finding_id = ctx.get("findingId", "unknown")
+                selected = ctx.get("selected", True)
+                status = "selected" if selected else "deselected"
+                query = (
+                    f"The user {status} finding #{finding_id} for review posting. "
+                    "No UI update needed — just acknowledge."
+                )
+            elif action == "post_selected":
+                pr_url = ctx.get("prUrl", "")
+                findings = ctx.get("selectedFindings", "[]")
+                query = (
+                    f"The user wants to post SELECTED review findings to the GitHub PR. "
+                    f"Call the `post_github_review` tool with pr_url='{pr_url}', "
+                    f"review_body='AI Code Review - selected findings from analysis', "
                     f"findings_json='{findings}', "
                     f"event='COMMENT'. "
                     "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."

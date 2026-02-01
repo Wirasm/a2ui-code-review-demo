@@ -65,6 +65,15 @@ export function renderComponent(
     case 'Image':
       content = renderImage(props, surface.data, scope);
       break;
+    case 'Tabs':
+      content = renderTabs(props, surface, scope);
+      break;
+    case 'Modal':
+      content = renderModal(props, surface, scope);
+      break;
+    case 'CheckBox':
+      content = renderCheckBox(props, surface, id, scope);
+      break;
     default:
       content = html`<div class="a2ui-unknown">[Unknown: ${type}]</div>`;
   }
@@ -118,6 +127,11 @@ function renderText(
 
   if (usageHint === 'body' && isDiffContent(text)) {
     return renderDiffBlock(text);
+  }
+
+  if (text.startsWith('https://') || text.startsWith('http://')) {
+    const label = text.includes('github.com') ? 'View on GitHub' : text;
+    return html`<a class="a2ui-text a2ui-text--${usageHint} a2ui-text--link" href=${text} target="_blank" rel="noopener noreferrer">${label}</a>`;
   }
 
   return html`<div class="a2ui-text a2ui-text--${usageHint}">${text}</div>`;
@@ -218,7 +232,7 @@ function renderButton(
   const action = props.action as Action | undefined;
   const className = primary ? 'a2ui-button a2ui-button--primary' : 'a2ui-button';
 
-  const handleClick = () => {
+  const handleClick = (e: Event) => {
     if (!action) return;
     const resolvedContext: Record<string, unknown> = {};
     if (action.context) {
@@ -226,7 +240,7 @@ function renderButton(
         resolvedContext[item.key] = resolveValue(item.value, surface.data, scope);
       }
     }
-    const event = new CustomEvent('a2ui-action', {
+    const customEvent = new CustomEvent('a2ui-action', {
       bubbles: true,
       composed: true,
       detail: {
@@ -236,7 +250,7 @@ function renderButton(
         context: resolvedContext,
       },
     });
-    document.dispatchEvent(event);
+    (e.currentTarget as HTMLElement).dispatchEvent(customEvent);
   };
 
   return html`
@@ -282,6 +296,155 @@ function renderImage(
   return html`<img class="a2ui-image" src=${url} style="object-fit:${fit}" />`;
 }
 
+function renderTabs(
+  props: Record<string, unknown>,
+  surface: Surface,
+  scope?: string,
+): TemplateResult {
+  const tabItems = props.tabItems as Array<{title: BoundValue; child: string}> | undefined;
+  if (!tabItems || tabItems.length === 0) return html`<div class="a2ui-tabs"></div>`;
+
+  // Store active tab in surface data so it survives re-renders
+  const tabKey = '__active_tab';
+  const activeTab = Number(surface.data[tabKey] ?? 0);
+
+  const handleTabClick = (e: Event, index: number) => {
+    surface.data[tabKey] = index;
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: { name: 'tab_switch', surfaceId: surface.surfaceId },
+    });
+    (e.currentTarget as HTMLElement).dispatchEvent(event);
+  };
+
+  return html`
+    <div class="a2ui-tabs">
+      <div class="a2ui-tabs__header">
+        ${tabItems.map((item, i) => {
+          const title = item.title ? String(resolveValue(item.title, surface.data, scope) ?? '') : '';
+          return html`
+            <button
+              class="a2ui-tabs__tab${i === activeTab ? ' a2ui-tabs__tab--active' : ''}"
+              @click=${(e: Event) => handleTabClick(e, i)}
+            >${title}</button>
+          `;
+        })}
+      </div>
+      ${tabItems.map((item, i) => html`
+        <div class="a2ui-tabs__panel${i !== activeTab ? ' a2ui-tabs__panel--hidden' : ''}">
+          ${item.child ? renderComponent(item.child, surface, scope) : nothing}
+        </div>
+      `)}
+    </div>
+  `;
+}
+
+function renderModal(
+  props: Record<string, unknown>,
+  surface: Surface,
+  scope?: string,
+): TemplateResult {
+  const entryPointId = props.entryPointChild as string;
+  const contentId = props.contentChild as string;
+
+  const findOverlay = (el: HTMLElement): HTMLElement | null => {
+    const modal = el.closest('.a2ui-modal');
+    return modal ? modal.querySelector('.a2ui-modal-overlay') : null;
+  };
+
+  const openModal = (e: Event) => {
+    const overlay = findOverlay(e.target as HTMLElement);
+    if (overlay) overlay.style.display = 'flex';
+  };
+
+  const handleBackdropClick = (e: Event) => {
+    if (e.target === e.currentTarget) {
+      (e.currentTarget as HTMLElement).style.display = 'none';
+    }
+  };
+
+  // Close modal on any action from within (cancel or confirm)
+  const handleAction = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (!detail?.name) return;
+    const overlay = findOverlay(e.target as HTMLElement);
+    if (overlay) overlay.style.display = 'none';
+    // Cancel is client-only, don't propagate to server
+    if (detail.name === 'modal_cancel') {
+      e.stopPropagation();
+    }
+  };
+
+  return html`
+    <div class="a2ui-modal" @a2ui-action=${handleAction}>
+      <div @click=${openModal}>
+        ${entryPointId ? renderComponent(entryPointId, surface, scope) : nothing}
+      </div>
+      <div class="a2ui-modal-overlay" style="display:none" @click=${handleBackdropClick}>
+        <div class="a2ui-modal-content">
+          ${contentId ? renderComponent(contentId, surface, scope) : nothing}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCheckBox(
+  props: Record<string, unknown>,
+  surface: Surface,
+  componentId: string,
+  scope?: string,
+): TemplateResult {
+  const labelBinding = props.label as BoundValue | undefined;
+  const valueBinding = props.value as BoundValue | undefined;
+  const label = labelBinding ? String(resolveValue(labelBinding, surface.data, scope) ?? '') : '';
+  const checked = valueBinding ? Boolean(resolveValue(valueBinding, surface.data, scope)) : false;
+
+  const handleChange = (e: Event) => {
+    const newChecked = (e.target as HTMLInputElement).checked;
+
+    // Update local data model if value has a path binding
+    if (valueBinding && 'path' in valueBinding) {
+      const p = valueBinding.path;
+      const fullPath = p.startsWith('/') ? p : (scope ? `${scope}/${p}` : p);
+      const segments = fullPath.replace(/^\//, '').split('/').filter(Boolean);
+      let current: Record<string, unknown> = surface.data;
+      for (let i = 0; i < segments.length - 1; i++) {
+        const seg = segments[i];
+        if (current[seg] == null || typeof current[seg] !== 'object') {
+          current[seg] = {};
+        }
+        current = current[seg] as Record<string, unknown>;
+      }
+      current[segments[segments.length - 1]] = newChecked;
+    }
+
+    // Dispatch action to server
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        name: 'toggle_finding',
+        sourceComponentId: componentId,
+        surfaceId: surface.surfaceId,
+        context: {
+          findingId: resolveValue({path: 'id'} as BoundValue, surface.data, scope),
+          selected: newChecked,
+        },
+      },
+    });
+    document.dispatchEvent(event);
+  };
+
+  return html`
+    <label class="a2ui-checkbox">
+      <input type="checkbox" .checked=${checked} @change=${handleChange} />
+      ${label ? html`<span class="a2ui-checkbox__label">${label}</span>` : nothing}
+    </label>
+  `;
+}
+
 function renderChildren(
   children: Children,
   surface: Surface,
@@ -299,17 +462,19 @@ function renderChildren(
 function renderTemplate(
   template: { componentId: string; dataBinding: string },
   surface: Surface,
-  _scope?: string,
+  scope?: string,
 ): Array<TemplateResult | typeof nothing> {
   const bindingPath = template.dataBinding;
-  const dataAtPath = getAtPath(surface.data, bindingPath);
+  // Resolve relative bindings against parent scope
+  const fullPath = bindingPath.startsWith('/')
+    ? bindingPath
+    : (scope ? `${scope}/${bindingPath}` : `/${bindingPath}`);
+  const dataAtPath = getAtPath(surface.data, fullPath);
   if (!dataAtPath || typeof dataAtPath !== 'object') return [];
 
   const items = Object.keys(dataAtPath as Record<string, unknown>);
   return items.map((key, index) => {
-    const itemScope = bindingPath.startsWith('/')
-      ? `${bindingPath}/${key}`
-      : `/${bindingPath}/${key}`;
+    const itemScope = `${fullPath}/${key}`;
     return renderComponent(template.componentId, surface, itemScope, index);
   });
 }

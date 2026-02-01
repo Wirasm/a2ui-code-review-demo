@@ -78,11 +78,67 @@ def fetch_pr_diff(pr_url: str, tool_context: ToolContext) -> str:
         "files_changed": meta.get("changed_files", 0),
         "additions": meta.get("additions", 0),
         "deletions": meta.get("deletions", 0),
+        "head_sha": meta.get("head", {}).get("sha", ""),
+        "base_url": f"https://github.com/{owner}/{repo}",
         "diff": diff_text,
     }
 
     logger.info(f"  - Success: {result['files_changed']} files, +{result['additions']}/-{result['deletions']}")
     return json.dumps(result)
+
+
+def _build_position_map(
+    owner: str, repo: str, pr_number: str, headers: dict[str, str],
+) -> dict[str, dict[int, int]]:
+    """Fetch PR files and build a mapping from (filename, line) to diff position.
+
+    Returns: {filename: {new_file_line_number: diff_position}}
+    """
+    files_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
+    try:
+        resp = requests.get(files_url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        files = resp.json()
+    except requests.RequestException as e:
+        logger.warning(f"  - Failed to fetch PR files for position map: {e}")
+        return {}
+
+    position_map: dict[str, dict[int, int]] = {}
+    for f in files:
+        filename = f.get("filename", "")
+        patch = f.get("patch", "")
+        if not patch:
+            continue
+
+        file_positions: dict[int, int] = {}
+        position = 0
+        new_line = 0
+
+        for line in patch.split("\n"):
+            if line.startswith("@@"):
+                # Parse @@ -old_start,old_count +new_start,new_count @@
+                m = re.search(r"\+(\d+)", line)
+                if m:
+                    new_line = int(m.group(1)) - 1
+                position += 1
+                continue
+
+            position += 1
+
+            if line.startswith("-"):
+                pass  # Deletion — no new file line
+            elif line.startswith("+"):
+                new_line += 1
+                file_positions[new_line] = position
+            else:
+                # Context line
+                new_line += 1
+                file_positions[new_line] = position
+
+        position_map[filename] = file_positions
+
+    logger.info(f"  - Position map built for {len(position_map)} files")
+    return position_map
 
 
 def post_github_review(
@@ -131,11 +187,14 @@ def post_github_review(
         logger.error(f"  - Failed to parse findings_json: {e}")
         findings = []
 
+    # Build position map from actual PR diff
+    position_map = _build_position_map(owner, repo, pr_number, headers)
+
     comments: list[dict[str, str | int]] = []
     for finding in findings:
         file_path_raw = finding.get("file_path", "")
         description = finding.get("description", "")
-        severity = finding.get("severity", "info")
+        severity = finding.get("severity_icon", finding.get("severity", "info"))
 
         # Parse "src/auth.py:45-52" -> path="src/auth.py", line=52
         path = file_path_raw
@@ -150,21 +209,67 @@ def post_github_review(
             except ValueError:
                 line = None
 
-        severity_prefix = f"[{severity.upper()}] " if severity else ""
-        comment: dict[str, str | int] = {
-            "path": path,
-            "body": f"{severity_prefix}{description}",
-            "side": "RIGHT",
-        }
-        if line is not None:
-            comment["line"] = line
+        severity_emoji = {"error": "\u274c", "warning": "\u26a0\ufe0f", "info": "\u2139\ufe0f"}.get(severity, "")
+        comment_body = f"{severity_emoji} **{severity.upper()}**: {description}"
 
-        comments.append(comment)
+        # Look up the real diff position
+        file_positions = position_map.get(path, {})
+        diff_position = file_positions.get(line) if line else None
+
+        if diff_position:
+            comments.append({"path": path, "body": comment_body, "position": diff_position})
+        elif line and file_positions:
+            # Line not exactly in diff — find closest line that IS in the diff
+            closest = min(file_positions.keys(), key=lambda l: abs(l - line))
+            if abs(closest - line) <= 10:
+                comments.append({"path": path, "body": comment_body, "position": file_positions[closest]})
+                logger.info(f"  - Snapped line {line} to {closest} for {path}")
+            else:
+                # Too far from any diff line — file-level comment
+                comments.append({"path": path, "body": comment_body, "subject_type": "file"})
+        else:
+            # No position data for this file
+            comments.append({"path": path, "body": comment_body, "subject_type": "file"})
+
+    # Build a structured review body from findings
+    severity_counts: dict[str, int] = {"error": 0, "warning": 0, "info": 0}
+    files_affected: set[str] = set()
+    for finding in findings:
+        sev = finding.get("severity_icon", finding.get("severity", "info"))
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        fp = finding.get("file_path", "")
+        if ":" in fp:
+            fp = fp.rsplit(":", 1)[0]
+        files_affected.add(fp)
+
+    total = len(findings)
+    body_lines = [
+        "## AI Code Review",
+        "",
+        f"**{total} issue{'s' if total != 1 else ''}** found across **{len(files_affected)} file{'s' if len(files_affected) != 1 else ''}**",
+        "",
+        "| Severity | Count |",
+        "| --- | --- |",
+    ]
+    if severity_counts.get("error"):
+        body_lines.append(f"| ❌ Critical | {severity_counts['error']} |")
+    if severity_counts.get("warning"):
+        body_lines.append(f"| ⚠️ Warning | {severity_counts['warning']} |")
+    if severity_counts.get("info"):
+        body_lines.append(f"| ℹ️ Info | {severity_counts['info']} |")
+
+    body_lines += [
+        "",
+        "See inline comments below for details.",
+    ]
+    formatted_body = "\n".join(body_lines)
 
     review_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
+    event_value = event if event in ("APPROVE", "REQUEST_CHANGES", "COMMENT") else "COMMENT"
+
     payload: dict[str, str | list[dict[str, str | int]]] = {
-        "body": review_body,
-        "event": event if event in ("APPROVE", "REQUEST_CHANGES", "COMMENT") else "COMMENT",
+        "body": formatted_body,
+        "event": event_value,
     }
     if comments:
         payload["comments"] = comments
@@ -172,20 +277,22 @@ def post_github_review(
     try:
         resp = requests.post(review_url, headers=headers, json=payload, timeout=30)
         resp.raise_for_status()
-        result = resp.json()
-        html_url = result.get("html_url", "")
-        logger.info(f"  - Success: Review posted at {html_url}")
-        return json.dumps({
-            "success": True,
-            "review_url": html_url,
-            "comments_posted": len(comments),
-        })
     except requests.RequestException as e:
         error_detail = ""
-        if hasattr(e, "response") and e.response is not None:
-            error_detail = f" Response: {e.response.text[:500]}"
+        resp_obj = getattr(e, "response", None)
+        if resp_obj is not None:
+            error_detail = f" Response: {resp_obj.text[:500]}"
         logger.error(f"  - Failed to post review: {e}{error_detail}")
         return json.dumps({"error": f"Failed to post review: {e}{error_detail}"})
+
+    result = resp.json()
+    html_url = result.get("html_url", "")
+    logger.info(f"  - Success: Review posted at {html_url}")
+    return json.dumps({
+        "success": True,
+        "review_url": html_url,
+        "comments_posted": len(comments),
+    })
 
 
 def _fetch_pr_files_fallback(
@@ -225,5 +332,7 @@ def _fetch_pr_files_fallback(
         "files_changed": meta.get("changed_files", 0),
         "additions": meta.get("additions", 0),
         "deletions": meta.get("deletions", 0),
+        "head_sha": meta.get("head", {}).get("sha", ""),
+        "base_url": f"https://github.com/{owner}/{repo}",
         "diff": "\n".join(diff_parts),
     })

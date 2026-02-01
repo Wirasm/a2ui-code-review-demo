@@ -166,6 +166,16 @@ export const appStyles = css`
     margin: 0;
   }
 
+  .a2ui-text--link {
+    color: #1a73e8;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .a2ui-text--link:hover {
+    text-decoration: underline;
+  }
+
   .a2ui-column {
     display: flex;
     flex-direction: column;
@@ -245,6 +255,22 @@ export const appStyles = css`
     border-color: #1557b0;
   }
 
+  /* Material Icons - must be defined in shadow DOM since external stylesheets can't cross the boundary */
+  .material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    display: inline-block;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
   .a2ui-icon {
     font-size: 20px;
     vertical-align: middle;
@@ -279,6 +305,104 @@ export const appStyles = css`
     border-radius: 4px;
     font-size: 0.8rem;
     color: #856404;
+  }
+
+  /* Tabs */
+  .a2ui-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .a2ui-tabs__header {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 12px;
+  }
+
+  .a2ui-tabs__tab {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .a2ui-tabs__tab:hover {
+    color: #1a73e8;
+  }
+
+  .a2ui-tabs__tab--active {
+    color: #1a73e8;
+    border-bottom-color: #1a73e8;
+    font-weight: 600;
+  }
+
+  .a2ui-tabs__panel {
+    /* visible by default */
+  }
+
+  .a2ui-tabs__panel--hidden {
+    display: none;
+  }
+
+  /* Modal */
+  .a2ui-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  .a2ui-modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    animation: fadeInUp 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* CheckBox */
+  .a2ui-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .a2ui-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #1a73e8;
+    cursor: pointer;
+    margin: 0;
+  }
+
+  .a2ui-checkbox__label {
+    font-size: 0.875rem;
+    color: #1a1a2e;
   }
 
   .surface-container {

@@ -47,7 +47,24 @@ export class AppShell extends LitElement {
       context: Record<string, unknown>;
     };
 
+    // Client-only actions that don't need a server round-trip
+    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel' || detail.name === 'tab_switch') {
+      if (detail.name === 'toggle_finding') {
+        this.updateSelectedCount(detail.surfaceId);
+      }
+      this.renderKey++;
+      return;
+    }
+
     if (!this.client || !this.contextId || !this.taskId) return;
+
+    // Compute selected findings at dispatch time (data model string may be stale)
+    if (detail.name === 'post_selected') {
+      const surface = this.surfaceManager.getSurface(detail.surfaceId);
+      if (surface) {
+        detail.context.selectedFindings = JSON.stringify(this.collectSelectedFindings(surface));
+      }
+    }
 
     const action: UserAction = {
       name: detail.name,
@@ -74,6 +91,49 @@ export class AppShell extends LitElement {
       this.statusHistory = [];
     }
   };
+
+  private updateSelectedCount(surfaceId: string): void {
+    const surface = this.surfaceManager.getSurface(surfaceId);
+    if (!surface) return;
+
+    // Count selected findings across all file groups in findings_all
+    let count = 0;
+    const findingsAll = surface.data.findings_all;
+    if (findingsAll && typeof findingsAll === 'object') {
+      for (const fileGroup of Object.values(findingsAll as Record<string, Record<string, unknown>>)) {
+        const findings = fileGroup.findings;
+        if (findings && typeof findings === 'object') {
+          for (const finding of Object.values(findings as Record<string, Record<string, unknown>>)) {
+            if (finding.selected) count++;
+          }
+        }
+      }
+    }
+
+    surface.data.post_selected_label = `Post Selected (${count})`;
+    surface.data.modal_message = `${count} finding${count !== 1 ? 's' : ''} will be posted as inline comments on the PR.`;
+  }
+
+  private collectSelectedFindings(surface: Surface): Array<Record<string, unknown>> {
+    const findings: Array<Record<string, unknown>> = [];
+    const findingsAll = surface.data.findings_all;
+    if (!findingsAll || typeof findingsAll !== 'object') return findings;
+    for (const fileGroup of Object.values(findingsAll as Record<string, Record<string, unknown>>)) {
+      const fileFindings = fileGroup.findings;
+      if (!fileFindings || typeof fileFindings !== 'object') continue;
+      for (const finding of Object.values(fileFindings as Record<string, Record<string, unknown>>)) {
+        if (finding.selected) {
+          findings.push({
+            id: finding.id,
+            severity_icon: finding.severity_icon,
+            file_path: finding.file_path,
+            description: finding.description,
+          });
+        }
+      }
+    }
+    return findings;
+  }
 
   private async handleSubmit(): Promise<void> {
     const input = this.inputValue.trim();
