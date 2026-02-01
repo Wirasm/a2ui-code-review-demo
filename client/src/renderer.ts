@@ -299,10 +299,9 @@ function renderTabs(
   const tabItems = props.tabItems as Array<{title: BoundValue; child: string}> | undefined;
   if (!tabItems || tabItems.length === 0) return html`<div class="a2ui-tabs"></div>`;
 
-  const tabId = `tabs-${Math.random().toString(36).slice(2, 8)}`;
-
-  const handleTabClick = (index: number) => {
-    const container = document.querySelector(`[data-tab-id="${tabId}"]`);
+  const handleTabClick = (e: Event, index: number) => {
+    // Walk up from the clicked button to find the .a2ui-tabs container
+    let container = (e.target as HTMLElement).closest('.a2ui-tabs');
     if (!container) return;
     const headers = container.querySelectorAll('.a2ui-tabs__tab');
     const panels = container.querySelectorAll('.a2ui-tabs__panel');
@@ -315,14 +314,14 @@ function renderTabs(
   };
 
   return html`
-    <div class="a2ui-tabs" data-tab-id=${tabId}>
+    <div class="a2ui-tabs">
       <div class="a2ui-tabs__header">
         ${tabItems.map((item, i) => {
           const title = item.title ? String(resolveValue(item.title, surface.data, scope) ?? '') : '';
           return html`
             <button
               class="a2ui-tabs__tab${i === 0 ? ' a2ui-tabs__tab--active' : ''}"
-              @click=${() => handleTabClick(i)}
+              @click=${(e: Event) => handleTabClick(e, i)}
             >${title}</button>
           `;
         })}
@@ -344,27 +343,28 @@ function renderModal(
   const entryPointId = props.entryPointChild as string;
   const contentId = props.contentChild as string;
 
-  const modalId = `modal-${Math.random().toString(36).slice(2, 8)}`;
-
-  const openModal = () => {
-    const overlay = document.querySelector(`[data-modal-id="${modalId}"]`);
-    if (overlay) (overlay as HTMLElement).style.display = 'flex';
+  const findOverlay = (el: HTMLElement): HTMLElement | null => {
+    const modal = el.closest('.a2ui-modal');
+    return modal ? modal.querySelector('.a2ui-modal-overlay') : null;
   };
 
-  const closeModal = () => {
-    const overlay = document.querySelector(`[data-modal-id="${modalId}"]`);
-    if (overlay) (overlay as HTMLElement).style.display = 'none';
+  const openModal = (e: Event) => {
+    const overlay = findOverlay(e.target as HTMLElement);
+    if (overlay) overlay.style.display = 'flex';
   };
 
   const handleBackdropClick = (e: Event) => {
-    if (e.target === e.currentTarget) closeModal();
+    if (e.target === e.currentTarget) {
+      (e.currentTarget as HTMLElement).style.display = 'none';
+    }
   };
 
   // Listen for modal_cancel action to close the modal
   const handleAction = (e: Event) => {
     const detail = (e as CustomEvent).detail;
     if (detail?.name === 'modal_cancel') {
-      closeModal();
+      const overlay = findOverlay(e.target as HTMLElement);
+      if (overlay) overlay.style.display = 'none';
       e.stopPropagation();
     }
   };
@@ -374,7 +374,7 @@ function renderModal(
       <div @click=${openModal}>
         ${entryPointId ? renderComponent(entryPointId, surface, scope) : nothing}
       </div>
-      <div class="a2ui-modal-overlay" data-modal-id=${modalId} style="display:none" @click=${handleBackdropClick}>
+      <div class="a2ui-modal-overlay" style="display:none" @click=${handleBackdropClick}>
         <div class="a2ui-modal-content">
           ${contentId ? renderComponent(contentId, surface, scope) : nothing}
         </div>
@@ -455,17 +455,19 @@ function renderChildren(
 function renderTemplate(
   template: { componentId: string; dataBinding: string },
   surface: Surface,
-  _scope?: string,
+  scope?: string,
 ): Array<TemplateResult | typeof nothing> {
   const bindingPath = template.dataBinding;
-  const dataAtPath = getAtPath(surface.data, bindingPath);
+  // Resolve relative bindings against parent scope
+  const fullPath = bindingPath.startsWith('/')
+    ? bindingPath
+    : (scope ? `${scope}/${bindingPath}` : `/${bindingPath}`);
+  const dataAtPath = getAtPath(surface.data, fullPath);
   if (!dataAtPath || typeof dataAtPath !== 'object') return [];
 
   const items = Object.keys(dataAtPath as Record<string, unknown>);
   return items.map((key, index) => {
-    const itemScope = bindingPath.startsWith('/')
-      ? `${bindingPath}/${key}`
-      : `/${bindingPath}/${key}`;
+    const itemScope = `${fullPath}/${key}`;
     return renderComponent(template.componentId, surface, itemScope, index);
   });
 }
