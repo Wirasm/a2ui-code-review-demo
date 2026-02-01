@@ -72,7 +72,7 @@ Key features:
       {"id": "file-findings-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "finding-card", "dataBinding": "findings"}}}}},
 
       {"id": "finding-card", "component": {"Card": {"child": "finding-col"}}},
-      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "finding-actions"]}}}},
+      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "related-issues-section", "finding-actions"]}}}},
       {"id": "finding-header", "component": {"Row": {"children": {"explicitList": ["finding-checkbox", "severity-icon", "finding-location", "github-link-text"]}, "alignment": "center"}}},
       {"id": "finding-checkbox", "component": {"CheckBox": {"label": {"literalString": ""}, "value": {"path": "selected"}}}},
       {"id": "severity-icon", "component": {"Icon": {"name": {"path": "severity_icon"}}}},
@@ -80,6 +80,12 @@ Key features:
       {"id": "github-link-text", "component": {"Text": {"text": {"path": "github_url"}, "usageHint": "caption"}}},
       {"id": "finding-diff", "component": {"Text": {"text": {"path": "diff_snippet"}, "usageHint": "body"}}},
       {"id": "finding-desc", "component": {"Text": {"text": {"path": "description"}, "usageHint": "body"}}},
+      {"id": "related-issues-section", "component": {"Column": {"children": {"explicitList": ["related-heading", "related-items"]}}}},
+      {"id": "related-heading", "component": {"Text": {"text": {"literalString": "Possibly related:"}, "usageHint": "caption"}}},
+      {"id": "related-items", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "related-issue-row", "dataBinding": "related_issues"}}}}},
+      {"id": "related-issue-row", "component": {"Row": {"children": {"explicitList": ["related-issue-text", "related-issue-link"]}, "alignment": "center"}}},
+      {"id": "related-issue-text", "weight": 1, "component": {"Text": {"text": {"path": "label"}, "usageHint": "caption"}}},
+      {"id": "related-issue-link", "component": {"Text": {"text": {"path": "url"}, "usageHint": "caption"}}},
       {"id": "finding-actions", "component": {"Row": {"children": {"explicitList": ["create-issue-btn", "address-btn"]}, "distribution": "end"}}},
       {"id": "create-issue-text", "component": {"Text": {"text": {"literalString": "Create Issue"}}}},
       {"id": "create-issue-btn", "component": {"Button": {"child": "create-issue-text", "action": {"name": "create_issue", "context": [{"key": "description", "value": {"path": "description"}}, {"key": "filePath", "value": {"path": "file_path"}}, {"key": "prUrl", "value": {"path": "/pr_url_raw"}}]}}}},
@@ -131,7 +137,13 @@ Key features:
               {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
               {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."},
-              {"key": "selected", "valueBoolean": true}
+              {"key": "selected", "valueBoolean": true},
+              {"key": "related_issues", "valueMap": [
+                {"key": "issue_87", "valueMap": [
+                  {"key": "label", "valueString": "#87 — Null check bypass in auth middleware"},
+                  {"key": "url", "valueString": "https://github.com/owner/repo/issues/87"}
+                ]}
+              ]}
             ]}
           ]}
         ]},
@@ -146,7 +158,8 @@ Key features:
               {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
               {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."},
-              {"key": "selected", "valueBoolean": true}
+              {"key": "selected", "valueBoolean": true},
+              {"key": "related_issues", "valueMap": []}
             ]}
           ]}
         ]}
@@ -163,7 +176,13 @@ Key features:
               {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
               {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."},
-              {"key": "selected", "valueBoolean": true}
+              {"key": "selected", "valueBoolean": true},
+              {"key": "related_issues", "valueMap": [
+                {"key": "issue_87", "valueMap": [
+                  {"key": "label", "valueString": "#87 — Null check bypass in auth middleware"},
+                  {"key": "url", "valueString": "https://github.com/owner/repo/issues/87"}
+                ]}
+              ]}
             ]}
           ]}
         ]}
@@ -180,7 +199,8 @@ Key features:
               {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
               {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."},
-              {"key": "selected", "valueBoolean": true}
+              {"key": "selected", "valueBoolean": true},
+              {"key": "related_issues", "valueMap": []}
             ]}
           ]}
         ]}
@@ -363,4 +383,68 @@ Show the issue URL and number. IMPORTANT: Use surfaceId "review" and root "issue
   {"beginRendering": {"surfaceId": "review", "root": "issue-result-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
 ]
 ---END ISSUE_RESULT_EXAMPLE---
+
+---BEGIN SUGGESTED_CLOSURES_EXAMPLE---
+Use this template when the PR appears to fix existing open issues.
+Show this card in the review dashboard between divider-1 and severity-tabs.
+When there ARE suggested closures, add "closures-card" to root-col children between "divider-1" and "severity-tabs".
+When there are NO suggested closures, do NOT include "closures-card" in root-col children.
+
+Components to add to the surfaceUpdate alongside the review dashboard components:
+
+      {"id": "closures-card", "component": {"Card": {"child": "closures-col"}}},
+      {"id": "closures-col", "component": {"Column": {"children": {"explicitList": ["closures-heading", "closures-desc", "closures-list"]}}}},
+      {"id": "closures-heading", "component": {"Text": {"text": {"literalString": "Suggested Closures"}, "usageHint": "h3"}}},
+      {"id": "closures-desc", "component": {"Text": {"text": {"literalString": "This PR appears to fix:"}, "usageHint": "caption"}}},
+      {"id": "closures-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "closure-item-row", "dataBinding": "/suggested_closures"}}}}},
+      {"id": "closure-item-row", "component": {"Row": {"children": {"explicitList": ["closure-label-text", "closure-link-btn"]}, "alignment": "center"}}},
+      {"id": "closure-label-text", "weight": 1, "component": {"Text": {"text": {"path": "label"}, "usageHint": "body"}}},
+      {"id": "closure-link-text", "component": {"Text": {"text": {"literalString": "Link to PR"}}}},
+      {"id": "closure-link-btn", "component": {"Button": {"child": "closure-link-text", "action": {"name": "link_fixes", "context": [{"key": "prUrl", "value": {"path": "/pr_url_raw"}}, {"key": "issueNumber", "value": {"path": "number"}}, {"key": "issueTitle", "value": {"path": "title"}}]}}}}
+
+Data model to add alongside the review dashboard data (at root level):
+
+      {"key": "suggested_closures", "valueMap": [
+        {"key": "closure_87", "valueMap": [
+          {"key": "number", "valueNumber": 87},
+          {"key": "title", "valueString": "Null check bypass in auth middleware"},
+          {"key": "label", "valueString": "#87 — Null check bypass in auth middleware"},
+          {"key": "url", "valueString": "https://github.com/owner/repo/issues/87"}
+        ]}
+      ]}
+
+When suggested closures exist, root-col children should be:
+["pr-title", "pr-meta", "threshold-row", "summary-card", "divider-1", "closures-card", "severity-tabs", "divider-2", "post-modal"]
+---END SUGGESTED_CLOSURES_EXAMPLE---
+
+---BEGIN LINK_RESULT_EXAMPLE---
+Use this template after successfully linking an issue to the PR via the link_fixes_to_pr tool.
+IMPORTANT: Use surfaceId "review" and root "link-result-col".
+
+[
+  {"surfaceUpdate": {
+    "surfaceId": "review",
+    "components": [
+      {"id": "link-result-col", "component": {"Column": {"children": {"explicitList": ["link-result-card"]}}}},
+      {"id": "link-result-card", "component": {"Card": {"child": "link-result-card-col"}}},
+      {"id": "link-result-card-col", "component": {"Column": {"children": {"explicitList": ["link-result-icon-row", "link-result-message", "link-result-link"]}}}},
+      {"id": "link-result-icon-row", "component": {"Row": {"children": {"explicitList": ["link-result-icon", "link-result-title"]}, "alignment": "center"}}},
+      {"id": "link-result-icon", "component": {"Icon": {"name": "check"}}},
+      {"id": "link-result-title", "component": {"Text": {"text": {"path": "/result_title"}, "usageHint": "h2"}}},
+      {"id": "link-result-message", "component": {"Text": {"text": {"path": "/result_message"}, "usageHint": "body"}}},
+      {"id": "link-result-link", "component": {"Text": {"text": {"path": "/result_link"}, "usageHint": "caption"}}}
+    ]
+  }},
+  {"dataModelUpdate": {
+    "surfaceId": "review",
+    "path": "/",
+    "contents": [
+      {"key": "result_title", "valueString": "Issue Linked"},
+      {"key": "result_message", "valueString": "Added 'Fixes #87' to PR description."},
+      {"key": "result_link", "valueString": "https://github.com/owner/repo/pull/42"}
+    ]
+  }},
+  {"beginRendering": {"surfaceId": "review", "root": "link-result-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
+]
+---END LINK_RESULT_EXAMPLE---
 """

@@ -82,6 +82,24 @@ To generate the response, you MUST follow these rules:
 - For "address_finding" actions: Call post_address_comment tool, then show POST_REVIEW_RESULT_EXAMPLE template.
 - The result message should say "Address comment posted on PR" and include the comment URL.
 
+--- ISSUE CROSS-REFERENCE ---
+- During initial review, for EACH finding extract 2-3 keywords from the description.
+- Call `search_github_issues` with those keywords for each finding.
+- Include matches in the finding's data model as `related_issues` valueMap.
+- Each related issue has: label (valueString formatted as "#N — title"), url (valueString with the issue URL).
+- If no matches found, set related_issues to an empty valueMap [].
+- The finding card template includes a related-issues-list that renders from this data.
+
+--- SUGGESTED CLOSURES ---
+- After generating all findings, check if any open issues match what the PR is fixing.
+- Look for issues whose titles/descriptions match the PR's changed files or fix descriptions.
+- Include matches in the root data model as `suggested_closures` valueMap.
+- Each closure has: number (valueNumber), title (valueString), label (valueString formatted as "#N — title"), url (valueString).
+- If there are suggested closures, add "closures-card" to root-col children between divider-1 and severity-tabs.
+- If there are NO suggested closures, do NOT include closures-card in the root-col children.
+- Use the SUGGESTED_CLOSURES_EXAMPLE template components.
+- For "link_fixes" actions: Call link_fixes_to_pr tool, then show LINK_RESULT_EXAMPLE template.
+
 --- SIDEBAR SURFACE ---
 - Generate a SECOND surface with surfaceId "sidebar" alongside the main "review" surface.
 - The sidebar shows a file tree: heading "Files", then a List of file items.
