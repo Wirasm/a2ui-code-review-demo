@@ -158,12 +158,14 @@ export const appStyles = css`
     font-size: 0.95rem;
     margin: 0;
     line-height: 1.5;
+    overflow-wrap: break-word;
   }
 
   .a2ui-text--caption {
     font-size: 0.8rem;
     color: #666;
     margin: 0;
+    overflow-wrap: break-word;
   }
 
   .a2ui-text--link {
@@ -180,12 +182,14 @@ export const appStyles = css`
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-width: 0;
   }
 
   .a2ui-row {
     display: flex;
     flex-direction: row;
     gap: 12px;
+    min-width: 0;
   }
 
   @keyframes fadeInUp {
@@ -199,6 +203,8 @@ export const appStyles = css`
     background: white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
     animation: fadeInUp 0.3s ease-out both;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .a2ui-card--critical {
@@ -218,6 +224,7 @@ export const appStyles = css`
     flex-direction: column;
     gap: 8px;
     overflow: auto;
+    min-width: 0;
   }
 
   .a2ui-list--horizontal {
@@ -225,6 +232,7 @@ export const appStyles = css`
     flex-direction: row;
     gap: 8px;
     overflow: auto;
+    min-width: 0;
   }
 
   .a2ui-button {
@@ -500,6 +508,7 @@ export const appStyles = css`
     display: flex;
     flex-direction: column;
     gap: 16px;
+    min-width: 0;
   }
 
   .surface-container {
@@ -507,6 +516,8 @@ export const appStyles = css`
     border-radius: 12px;
     padding: 20px;
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+    min-width: 0;
+    overflow: hidden;
   }
 
   .surface-container--sidebar {

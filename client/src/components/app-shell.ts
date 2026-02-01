@@ -230,7 +230,7 @@ export class AppShell extends LitElement {
 
       // Detect post result: the review surface root changed to "result-col"
       const updatedReview = this.surfaceManager.getSurface('review');
-      if (updatedReview && (updatedReview.root === 'result-col' || updatedReview.root === 'issue-result-col') && snapshot) {
+      if (updatedReview && (updatedReview.root === 'result-col' || updatedReview.root === 'issue-result-col' || updatedReview.root === 'link-result-col') && snapshot) {
         // Extract toast data before restoring
         const message = String(updatedReview.data.result_message ?? 'Review posted');
         const link = String(updatedReview.data.result_link ?? '');

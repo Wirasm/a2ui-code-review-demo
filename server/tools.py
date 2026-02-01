@@ -471,6 +471,140 @@ def fetch_repo_labels(pr_url: str, tool_context: ToolContext) -> str:
     return json.dumps(labels)
 
 
+def search_github_issues(pr_url: str, keywords: str, tool_context: ToolContext) -> str:
+    """Search for open GitHub issues in the repository matching keywords.
+
+    Args:
+        pr_url: Full GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+        keywords: Space-separated keywords to search for in issue titles/bodies
+
+    Returns:
+        JSON array string of matching issues with number, title, and url fields.
+    """
+    logger.info("--- TOOL CALLED: search_github_issues ---")
+    logger.info(f"  - PR URL: {pr_url}, Keywords: {keywords}")
+
+    match = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    if not match:
+        return json.dumps([])
+
+    owner, repo, _pr_number = match.groups()
+    token = os.getenv("GITHUB_TOKEN", "")
+
+    headers: dict[str, str] = {"X-GitHub-Api-Version": "2022-11-28"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    headers["Accept"] = "application/vnd.github+json"
+
+    query = f"repo:{owner}/{repo} type:issue state:open {keywords}"
+    search_url = "https://api.github.com/search/issues"
+
+    try:
+        resp = requests.get(
+            search_url,
+            headers=headers,
+            params={"q": query, "per_page": 5},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"  - Failed to search issues: {e}")
+        return json.dumps([])
+
+    items = resp.json().get("items", [])
+    results = [
+        {
+            "number": item["number"],
+            "title": item["title"],
+            "url": item["html_url"],
+        }
+        for item in items
+    ]
+    logger.info(f"  - Success: Found {len(results)} matching issues")
+    return json.dumps(results)
+
+
+def link_fixes_to_pr(pr_url: str, issue_number: int, tool_context: ToolContext) -> str:
+    """Append 'Fixes #N' to a GitHub PR description to auto-close an issue on merge.
+
+    Args:
+        pr_url: Full GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+        issue_number: The issue number to link as fixed
+
+    Returns:
+        JSON string with success status, or error details.
+    """
+    logger.info("--- TOOL CALLED: link_fixes_to_pr ---")
+    logger.info(f"  - PR URL: {pr_url}, Issue: #{issue_number}")
+
+    match = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    if not match:
+        return json.dumps({"error": f"Invalid GitHub PR URL: {pr_url}"})
+
+    owner, repo, pr_number = match.groups()
+    token = os.getenv("GITHUB_TOKEN", "")
+
+    if not token:
+        return json.dumps({"error": "GITHUB_TOKEN environment variable is not set."})
+
+    headers: dict[str, str] = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    pr_api_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+
+    # Read current PR body
+    try:
+        resp = requests.get(pr_api_url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        pr_data = resp.json()
+    except requests.RequestException as e:
+        logger.error(f"  - Failed to fetch PR: {e}")
+        return json.dumps({"error": f"Failed to fetch PR: {e}"})
+
+    current_body = pr_data.get("body") or ""
+    fixes_ref = f"Fixes #{issue_number}"
+
+    if fixes_ref in current_body:
+        logger.info(f"  - '{fixes_ref}' already in PR description")
+        return json.dumps({
+            "success": True,
+            "already_linked": True,
+            "issue_number": issue_number,
+            "pr_url": pr_data.get("html_url", pr_url),
+        })
+
+    updated_body = current_body + f"\n\n{fixes_ref}"
+
+    try:
+        resp = requests.patch(
+            pr_api_url,
+            headers=headers,
+            json={"body": updated_body},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        error_detail = ""
+        resp_obj = getattr(e, "response", None)
+        if resp_obj is not None:
+            error_detail = f" Response: {resp_obj.text[:500]}"
+        logger.error(f"  - Failed to update PR: {e}{error_detail}")
+        return json.dumps({"error": f"Failed to update PR: {e}{error_detail}"})
+
+    result = resp.json()
+    html_url = result.get("html_url", pr_url)
+    logger.info(f"  - Success: Added '{fixes_ref}' to PR description")
+    return json.dumps({
+        "success": True,
+        "already_linked": False,
+        "issue_number": issue_number,
+        "pr_url": html_url,
+    })
+
+
 def _fetch_pr_files_fallback(
     owner: str, repo: str, pr_number: str, headers: dict[str, str], meta: dict,
 ) -> str:

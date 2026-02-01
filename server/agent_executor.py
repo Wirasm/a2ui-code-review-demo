@@ -122,6 +122,15 @@ class CodeReviewAgentExecutor(AgentExecutor):
                     f"finding_description='{description}', file_path='{file_path}'. "
                     "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
                 )
+            elif action == "link_fixes":
+                pr_url = ctx.get("prUrl", "")
+                issue_number = ctx.get("issueNumber", 0)
+                issue_title = ctx.get("issueTitle", "")
+                query = (
+                    f"The user wants to link issue #{issue_number} ('{issue_title}') as fixed by this PR. "
+                    f"Call the `link_fixes_to_pr` tool with pr_url='{pr_url}', issue_number={issue_number}. "
+                    "After linking, show a confirmation using the LINK_RESULT_EXAMPLE template."
+                )
             else:
                 query = f"User action: {action} with context: {ctx}"
         else:

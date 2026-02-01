@@ -21,7 +21,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from a2ui_schema import A2UI_SCHEMA
 from prompt_builder import get_text_prompt, get_ui_prompt
-from tools import fetch_pr_diff, post_github_review, create_github_issue, post_address_comment, fetch_repo_labels
+from tools import fetch_pr_diff, post_github_review, create_github_issue, post_address_comment, fetch_repo_labels, search_github_issues, link_fixes_to_pr
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,14 @@ SEVERITY LEVELS:
 8. When the user wants to mark a finding as "address before merge", call `post_address_comment`
    with the PR URL, finding description, and file path. Then show a confirmation using
    the POST_REVIEW_RESULT_EXAMPLE template.
+9. During your initial PR review, for EACH finding, extract 2-3 keywords from the description
+   and call `search_github_issues` to find related open issues. Include any matches in the
+   finding's `related_issues` data. Use the REVIEW_DASHBOARD_EXAMPLE template which includes
+   a related-issues-list component in each finding card.
+10. After generating all findings, also check if any open issues appear to be FIXED by this PR.
+    If so, include them in the `suggested_closures` data model and show the SUGGESTED_CLOSURES_EXAMPLE card.
+11. When the user clicks "Link to PR" on a suggested closure, call `link_fixes_to_pr` to append
+    "Fixes #N" to the PR description. Show confirmation using the LINK_RESULT_EXAMPLE template.
 
 When the user clicks "Will Address" or "Dismiss" on a finding, acknowledge their
 decision and show a brief confirmation.
@@ -110,7 +118,7 @@ class CodeReviewAgent:
             name="code_review_agent",
             description="An agent that reviews GitHub PRs and identifies critical code issues.",
             instruction=instruction,
-            tools=[fetch_pr_diff, post_github_review, create_github_issue, post_address_comment, fetch_repo_labels],
+            tools=[fetch_pr_diff, post_github_review, create_github_issue, post_address_comment, fetch_repo_labels, search_github_issues, link_fixes_to_pr],
         )
 
     async def stream(self, query: str, session_id: str) -> AsyncIterable[dict[str, Any]]:
