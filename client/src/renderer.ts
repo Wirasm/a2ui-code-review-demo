@@ -304,18 +304,18 @@ function renderTabs(
   const tabItems = props.tabItems as Array<{title: BoundValue; child: string}> | undefined;
   if (!tabItems || tabItems.length === 0) return html`<div class="a2ui-tabs"></div>`;
 
+  // Store active tab in surface data so it survives re-renders
+  const tabKey = '__active_tab';
+  const activeTab = Number(surface.data[tabKey] ?? 0);
+
   const handleTabClick = (e: Event, index: number) => {
-    // Walk up from the clicked button to find the .a2ui-tabs container
-    let container = (e.target as HTMLElement).closest('.a2ui-tabs');
-    if (!container) return;
-    const headers = container.querySelectorAll('.a2ui-tabs__tab');
-    const panels = container.querySelectorAll('.a2ui-tabs__panel');
-    headers.forEach((h, i) => {
-      h.classList.toggle('a2ui-tabs__tab--active', i === index);
+    surface.data[tabKey] = index;
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: { name: 'tab_switch', surfaceId: surface.surfaceId },
     });
-    panels.forEach((p, i) => {
-      p.classList.toggle('a2ui-tabs__panel--hidden', i !== index);
-    });
+    (e.currentTarget as HTMLElement).dispatchEvent(event);
   };
 
   return html`
@@ -325,14 +325,14 @@ function renderTabs(
           const title = item.title ? String(resolveValue(item.title, surface.data, scope) ?? '') : '';
           return html`
             <button
-              class="a2ui-tabs__tab${i === 0 ? ' a2ui-tabs__tab--active' : ''}"
+              class="a2ui-tabs__tab${i === activeTab ? ' a2ui-tabs__tab--active' : ''}"
               @click=${(e: Event) => handleTabClick(e, i)}
             >${title}</button>
           `;
         })}
       </div>
       ${tabItems.map((item, i) => html`
-        <div class="a2ui-tabs__panel${i !== 0 ? ' a2ui-tabs__panel--hidden' : ''}">
+        <div class="a2ui-tabs__panel${i !== activeTab ? ' a2ui-tabs__panel--hidden' : ''}">
           ${item.child ? renderComponent(item.child, surface, scope) : nothing}
         </div>
       `)}

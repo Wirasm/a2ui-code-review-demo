@@ -48,7 +48,7 @@ export class AppShell extends LitElement {
     };
 
     // Client-only actions that don't need a server round-trip
-    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel') {
+    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel' || detail.name === 'tab_switch') {
       if (detail.name === 'toggle_finding') {
         this.updateSelectedCount(detail.surfaceId);
       }
