@@ -94,7 +94,6 @@ export function renderComponent(
 }
 
 function isDiffContent(text: string): boolean {
-  if (!text.includes('\n') && !text.includes('\\n')) return false;
   // Split on actual newlines or escaped newlines
   const lines = text.includes('\n') ? text.split('\n') : text.split('\\n');
   let diffLineCount = 0;
@@ -105,7 +104,7 @@ function isDiffContent(text: string): boolean {
     }
     if (trimmed.length > 200) return false;
   }
-  return diffLineCount >= 2;
+  return diffLineCount >= 1;
 }
 
 function escapeHtml(str: string): string {
