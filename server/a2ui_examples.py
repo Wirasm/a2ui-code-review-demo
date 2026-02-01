@@ -68,7 +68,7 @@ Key features:
       {"id": "file-findings-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "finding-card", "dataBinding": "findings"}}}}},
 
       {"id": "finding-card", "component": {"Card": {"child": "finding-col"}}},
-      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "finding-actions"]}}}},
+      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc"]}}}},
       {"id": "finding-header", "component": {"Row": {"children": {"explicitList": ["finding-checkbox", "severity-icon", "finding-location", "github-link-text"]}, "alignment": "center"}}},
       {"id": "finding-checkbox", "component": {"CheckBox": {"label": {"literalString": ""}, "value": {"path": "selected"}}}},
       {"id": "severity-icon", "component": {"Icon": {"name": {"path": "severity_icon"}}}},
@@ -76,13 +76,6 @@ Key features:
       {"id": "github-link-text", "component": {"Text": {"text": {"path": "github_url"}, "usageHint": "caption"}}},
       {"id": "finding-diff", "component": {"Text": {"text": {"path": "diff_snippet"}, "usageHint": "body"}}},
       {"id": "finding-desc", "component": {"Text": {"text": {"path": "description"}, "usageHint": "body"}}},
-      {"id": "finding-actions", "component": {"Row": {"children": {"explicitList": ["address-btn", "dismiss-btn"]}, "distribution": "end"}}},
-
-      {"id": "address-text", "component": {"Text": {"text": {"literalString": "Will Address"}}}},
-      {"id": "address-btn", "component": {"Button": {"child": "address-text", "action": {"name": "address_finding", "context": [{"key": "findingId", "value": {"path": "id"}}, {"key": "filePath", "value": {"path": "file_path"}}]}}}},
-      {"id": "dismiss-text", "component": {"Text": {"text": {"literalString": "Dismiss"}}}},
-      {"id": "dismiss-btn", "component": {"Button": {"child": "dismiss-text", "action": {"name": "dismiss_finding", "context": [{"key": "findingId", "value": {"path": "id"}}, {"key": "filePath", "value": {"path": "file_path"}}]}}}},
-
       {"id": "divider-2", "component": {"Divider": {}}},
 
       {"id": "post-modal", "component": {"Modal": {"entryPointChild": "post-selected-btn", "contentChild": "modal-content-col"}}},
@@ -190,9 +183,8 @@ Key features:
 ---END REVIEW_DASHBOARD_EXAMPLE---
 
 ---BEGIN FINDING_RESPONSE_EXAMPLE---
-Use this template when the user clicks "Will Address" or "Dismiss" on a finding,
-or when answering follow-up questions about specific findings or code.
-Show a brief confirmation and status update.
+Use this template when answering follow-up questions about specific findings or code.
+Show a brief response with relevant information.
 
 [
   {"surfaceUpdate": {

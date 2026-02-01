@@ -359,12 +359,14 @@ function renderModal(
     }
   };
 
-  // Listen for modal_cancel action to close the modal
+  // Close modal on any action from within (cancel or confirm)
   const handleAction = (e: Event) => {
     const detail = (e as CustomEvent).detail;
-    if (detail?.name === 'modal_cancel') {
-      const overlay = findOverlay(e.target as HTMLElement);
-      if (overlay) overlay.style.display = 'none';
+    if (!detail?.name) return;
+    const overlay = findOverlay(e.target as HTMLElement);
+    if (overlay) overlay.style.display = 'none';
+    // Cancel is client-only, don't propagate to server
+    if (detail.name === 'modal_cancel') {
       e.stopPropagation();
     }
   };

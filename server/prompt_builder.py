@@ -25,7 +25,6 @@ To generate the response, you MUST follow these rules:
   github_url (display text like "View on GitHub"), selected (boolean, default true).
   IMPORTANT: Set pr_url_raw to the original PR URL so buttons can reference it.
   Set findings_json to a JSON array string of all selected findings (for the Post Selected button).
-- For "address_finding" or "dismiss_finding" actions: Use FINDING_RESPONSE_EXAMPLE template.
 - For "post_review" or "post_selected" action results (after calling post_github_review): Use POST_REVIEW_RESULT_EXAMPLE template.
 - For "toggle_finding" actions: Acknowledge briefly, no UI update needed.
 - For follow-up questions about specific findings or code: Use FINDING_RESPONSE_EXAMPLE template

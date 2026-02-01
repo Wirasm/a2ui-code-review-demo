@@ -58,21 +58,7 @@ class CodeReviewAgentExecutor(AgentExecutor):
             ctx = ui_event_part.get("context", {})
             logger.info(f"UI action: {action}, context: {ctx}")
 
-            if action == "address_finding":
-                finding_id = ctx.get("findingId", "unknown")
-                file_path = ctx.get("filePath", "unknown file")
-                query = (
-                    f"The user chose to ADDRESS finding #{finding_id} in {file_path}. "
-                    "Acknowledge this decision with a brief confirmation using the FINDING_RESPONSE_EXAMPLE template."
-                )
-            elif action == "dismiss_finding":
-                finding_id = ctx.get("findingId", "unknown")
-                file_path = ctx.get("filePath", "unknown file")
-                query = (
-                    f"The user DISMISSED finding #{finding_id} in {file_path}. "
-                    "Acknowledge this with a brief confirmation using the FINDING_RESPONSE_EXAMPLE template."
-                )
-            elif action == "post_review":
+            if action == "post_review":
                 pr_url = ctx.get("prUrl", "")
                 findings = ctx.get("findings", "[]")
                 query = (
