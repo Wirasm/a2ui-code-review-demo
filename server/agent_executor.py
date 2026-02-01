@@ -1,0 +1,148 @@
+"""A2A AgentExecutor for the code review agent.
+
+Handles incoming A2A requests, extracts user input (text or UI actions),
+delegates to the LLM agent, and returns A2UI responses.
+"""
+
+import json
+import logging
+
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.server.tasks import TaskUpdater
+from a2a.types import DataPart, Part, Task, TaskState, TextPart, UnsupportedOperationError
+from a2a.utils import new_agent_parts_message, new_agent_text_message, new_task
+from a2a.utils.errors import ServerError
+from a2ui_helpers import create_a2ui_part, try_activate_a2ui_extension
+from agent import CodeReviewAgent
+
+logger = logging.getLogger(__name__)
+
+
+class CodeReviewAgentExecutor(AgentExecutor):
+    """Handles A2A protocol requests for the code review agent."""
+
+    def __init__(self) -> None:
+        self.ui_agent = CodeReviewAgent(use_ui=True)
+        self.text_agent = CodeReviewAgent(use_ui=False)
+
+    async def execute(
+        self,
+        context: RequestContext,
+        event_queue: EventQueue,
+    ) -> None:
+        query = ""
+        ui_event_part = None
+
+        use_ui = try_activate_a2ui_extension(context)
+        agent = self.ui_agent if use_ui else self.text_agent
+
+        if use_ui:
+            logger.info("A2UI extension active. Using UI agent.")
+        else:
+            logger.info("A2UI extension not active. Using text agent.")
+
+        if context.message and context.message.parts:
+            for i, part in enumerate(context.message.parts):
+                if isinstance(part.root, DataPart):
+                    if "userAction" in part.root.data:
+                        logger.info(f"  Part {i}: A2UI userAction")
+                        ui_event_part = part.root.data["userAction"]
+                    else:
+                        logger.info(f"  Part {i}: DataPart")
+                elif isinstance(part.root, TextPart):
+                    logger.info(f"  Part {i}: TextPart: {part.root.text[:100]}")
+
+        if ui_event_part:
+            action = ui_event_part.get("name", ui_event_part.get("actionName", ""))
+            ctx = ui_event_part.get("context", {})
+            logger.info(f"UI action: {action}, context: {ctx}")
+
+            if action == "address_finding":
+                finding_id = ctx.get("findingId", "unknown")
+                file_path = ctx.get("filePath", "unknown file")
+                query = (
+                    f"The user chose to ADDRESS finding #{finding_id} in {file_path}. "
+                    "Acknowledge this decision with a brief confirmation using the FINDING_RESPONSE_EXAMPLE template."
+                )
+            elif action == "dismiss_finding":
+                finding_id = ctx.get("findingId", "unknown")
+                file_path = ctx.get("filePath", "unknown file")
+                query = (
+                    f"The user DISMISSED finding #{finding_id} in {file_path}. "
+                    "Acknowledge this with a brief confirmation using the FINDING_RESPONSE_EXAMPLE template."
+                )
+            elif action == "post_review":
+                pr_url = ctx.get("prUrl", "")
+                findings = ctx.get("findings", "[]")
+                query = (
+                    f"The user wants to post your review findings to the GitHub PR. "
+                    f"Call the `post_github_review` tool with pr_url='{pr_url}', "
+                    f"review_body='AI Code Review - automated findings from analysis', "
+                    f"findings_json='{findings}', "
+                    f"event='COMMENT'. "
+                    "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
+                )
+            else:
+                query = f"User action: {action} with context: {ctx}"
+        else:
+            query = context.get_user_input()
+
+        logger.info(f"Final query: {query[:200]}")
+
+        task = context.current_task
+        if not task:
+            task = new_task(context.message)
+            await event_queue.enqueue_event(task)
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+
+        async for item in agent.stream(query, task.context_id):
+            if not item["is_task_complete"]:
+                await updater.update_status(
+                    TaskState.working,
+                    new_agent_text_message(item["updates"], task.context_id, task.id),
+                )
+                continue
+
+            content = item["content"]
+            final_parts: list[Part] = []
+
+            if "---a2ui_JSON---" in content:
+                logger.info("Splitting response into text and A2UI parts.")
+                text_content, json_string = content.split("---a2ui_JSON---", 1)
+
+                if text_content.strip():
+                    final_parts.append(Part(root=TextPart(text=text_content.strip())))
+
+                if json_string.strip():
+                    try:
+                        json_cleaned = (
+                            json_string.strip().lstrip("```json").rstrip("```").strip()
+                        )
+                        json_data = json.loads(json_cleaned)
+
+                        if isinstance(json_data, list):
+                            logger.info(f"Found {len(json_data)} A2UI messages.")
+                            for message in json_data:
+                                final_parts.append(create_a2ui_part(message))
+                        else:
+                            logger.info("Single A2UI message (not a list).")
+                            final_parts.append(create_a2ui_part(json_data))
+
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse A2UI JSON: {e}")
+                        final_parts.append(Part(root=TextPart(text=json_string)))
+            else:
+                final_parts.append(Part(root=TextPart(text=content.strip())))
+
+            await updater.update_status(
+                TaskState.input_required,
+                new_agent_parts_message(final_parts, task.context_id, task.id),
+                final=False,
+            )
+            break
+
+    async def cancel(
+        self, request: RequestContext, event_queue: EventQueue
+    ) -> Task | None:
+        raise ServerError(error=UnsupportedOperationError())

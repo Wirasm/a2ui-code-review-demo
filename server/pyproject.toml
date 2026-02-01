@@ -1,0 +1,31 @@
+[project]
+name = "a2ui-code-review"
+version = "0.1.0"
+description = "A2UI Code Review Agent - AI-powered PR review with interactive UI"
+requires-python = ">=3.13"
+dependencies = [
+    "a2a-sdk",
+    "google-adk",
+    "google-genai",
+    "jsonschema",
+    "litellm",
+    "click",
+    "python-dotenv",
+    "starlette",
+    "uvicorn",
+    "requests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
