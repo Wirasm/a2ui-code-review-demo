@@ -137,7 +137,7 @@ def post_github_review(
     for finding in findings:
         file_path_raw = finding.get("file_path", "")
         description = finding.get("description", "")
-        severity = finding.get("severity", "info")
+        severity = finding.get("severity_icon", finding.get("severity", "info"))
 
         # Parse "src/auth.py:45-52" -> path="src/auth.py", line=52
         path = file_path_raw

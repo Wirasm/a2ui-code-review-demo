@@ -255,6 +255,22 @@ export const appStyles = css`
     border-color: #1557b0;
   }
 
+  /* Material Icons - must be defined in shadow DOM since external stylesheets can't cross the boundary */
+  .material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    display: inline-block;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
   .a2ui-icon {
     font-size: 20px;
     vertical-align: middle;

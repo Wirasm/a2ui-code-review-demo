@@ -216,31 +216,32 @@ Show a brief response with relevant information.
 ---BEGIN POST_REVIEW_RESULT_EXAMPLE---
 Use this template after successfully posting a review to GitHub via the post_github_review tool.
 Show the review URL and count of comments posted.
+IMPORTANT: Use surfaceId "review" to replace the existing review dashboard in-place.
 
 [
   {"surfaceUpdate": {
-    "surfaceId": "post-result",
+    "surfaceId": "review",
     "components": [
       {"id": "result-col", "component": {"Column": {"children": {"explicitList": ["result-card"]}}}},
       {"id": "result-card", "component": {"Card": {"child": "result-card-col"}}},
       {"id": "result-card-col", "component": {"Column": {"children": {"explicitList": ["result-icon-row", "result-message", "result-link"]}}}},
       {"id": "result-icon-row", "component": {"Row": {"children": {"explicitList": ["result-icon", "result-title"]}, "alignment": "center"}}},
       {"id": "result-icon", "component": {"Icon": {"name": "check"}}},
-      {"id": "result-title", "component": {"Text": {"text": {"path": "/result_title"}, "usageHint": "h3"}}},
+      {"id": "result-title", "component": {"Text": {"text": {"path": "/result_title"}, "usageHint": "h2"}}},
       {"id": "result-message", "component": {"Text": {"text": {"path": "/result_message"}, "usageHint": "body"}}},
       {"id": "result-link", "component": {"Text": {"text": {"path": "/result_link"}, "usageHint": "caption"}}}
     ]
   }},
   {"dataModelUpdate": {
-    "surfaceId": "post-result",
+    "surfaceId": "review",
     "path": "/",
     "contents": [
       {"key": "result_title", "valueString": "Review Posted"},
       {"key": "result_message", "valueString": "Successfully posted 3 comments to the PR."},
-      {"key": "result_link", "valueString": "View on GitHub: https://github.com/owner/repo/pull/42#pullrequestreview-12345"}
+      {"key": "result_link", "valueString": "https://github.com/owner/repo/pull/42#pullrequestreview-12345"}
     ]
   }},
-  {"beginRendering": {"surfaceId": "post-result", "root": "result-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
+  {"beginRendering": {"surfaceId": "review", "root": "result-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
 ]
 ---END POST_REVIEW_RESULT_EXAMPLE---
 """
