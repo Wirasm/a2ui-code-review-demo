@@ -242,13 +242,15 @@ export class AppShell extends LitElement {
         // Show toast
         this.showToast(message, link);
 
-        // Record in review history
-        const countMatch = message.match(/(\d+)/);
-        this.reviewHistory = [...this.reviewHistory, {
-          timestamp: new Date(),
-          commentCount: countMatch ? countMatch[1] : '?',
-          reviewUrl: link,
-        }];
+        // Record in review history only on successful posts (link is a GitHub URL)
+        if (link.includes('github.com')) {
+          const countMatch = message.match(/(\d+)/);
+          this.reviewHistory = [...this.reviewHistory, {
+            timestamp: new Date(),
+            commentCount: countMatch ? countMatch[1] : '?',
+            reviewUrl: link,
+          }];
+        }
       }
 
       this.activeSurfaces = this.surfaceManager.getReadySurfaces();
