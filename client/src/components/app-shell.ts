@@ -99,6 +99,7 @@ export class AppShell extends LitElement {
     this.statusHistory = [];
     this.errorText = '';
     this.textResponse = '';
+    this.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     try {
       const stream = sendUserAction(this.client, action, this.contextId, this.taskId);
