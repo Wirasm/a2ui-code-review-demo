@@ -47,6 +47,15 @@ export class AppShell extends LitElement {
       context: Record<string, unknown>;
     };
 
+    // Client-only actions that don't need a server round-trip
+    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel') {
+      if (detail.name === 'toggle_finding') {
+        this.updateSelectedCount(detail.surfaceId);
+      }
+      this.renderKey++;
+      return;
+    }
+
     if (!this.client || !this.contextId || !this.taskId) return;
 
     const action: UserAction = {
@@ -74,6 +83,28 @@ export class AppShell extends LitElement {
       this.statusHistory = [];
     }
   };
+
+  private updateSelectedCount(surfaceId: string): void {
+    const surface = this.surfaceManager.getSurface(surfaceId);
+    if (!surface) return;
+
+    // Count selected findings across all file groups in findings_all
+    let count = 0;
+    const findingsAll = surface.data.findings_all;
+    if (findingsAll && typeof findingsAll === 'object') {
+      for (const fileGroup of Object.values(findingsAll as Record<string, Record<string, unknown>>)) {
+        const findings = fileGroup.findings;
+        if (findings && typeof findings === 'object') {
+          for (const finding of Object.values(findings as Record<string, Record<string, unknown>>)) {
+            if (finding.selected) count++;
+          }
+        }
+      }
+    }
+
+    surface.data.post_selected_label = `Post Selected (${count})`;
+    surface.data.modal_message = `${count} finding${count !== 1 ? 's' : ''} will be posted as inline comments on the PR.`;
+  }
 
   private async handleSubmit(): Promise<void> {
     const input = this.inputValue.trim();
