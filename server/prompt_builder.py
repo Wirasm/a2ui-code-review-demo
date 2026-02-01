@@ -41,7 +41,7 @@ To generate the response, you MUST follow these rules:
 
 --- FILE GROUPING ---
 - Group findings by file path in the data model using nested valueMap.
-- Structure: /findings_all/{{fileKey}}/file_path, /findings_all/{{fileKey}}/issue_count, /findings_all/{{fileKey}}/findings/{{findingKey}}/...
+- Structure: /findings_all/FILE_KEY/file_path, /findings_all/FILE_KEY/issue_count, /findings_all/FILE_KEY/findings/FINDING_KEY/...
 - Create separate filtered data lists: /findings_all, /findings_critical, /findings_warning, /findings_info.
 - Each filtered list contains only files (and their findings) matching that severity.
 
@@ -60,7 +60,7 @@ To generate the response, you MUST follow these rules:
 
 --- GITHUB LINKS ---
 - Use the base_url and head_sha from the fetch_pr_diff tool result to construct GitHub URLs.
-- Format: {{base_url}}/blob/{{head_sha}}/{{file_path}}#L{{start_line}}-L{{end_line}}
+- Format: BASE_URL/blob/HEAD_SHA/FILE_PATH#Lstart-Lend
 - Store the URL in each finding's github_url field as display text (e.g., "View on GitHub").
 - The client renders github_url text with caption styling.
 

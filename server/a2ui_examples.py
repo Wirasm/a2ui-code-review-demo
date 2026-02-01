@@ -17,7 +17,7 @@ Key features:
 - CheckBox on each finding for selective posting
 - Modal confirmation before posting selected findings
 - GitHub links on each finding pointing to the exact file/lines
-- Data model uses nested /files/{fileKey}/findings/{findingKey} structure
+- Data model uses nested /files/FILE_KEY/findings/FINDING_KEY structure
 - Separate filtered lists: /findings_all, /findings_critical, /findings_warning, /findings_info
   each containing the same nested file > findings structure but filtered by severity
 
