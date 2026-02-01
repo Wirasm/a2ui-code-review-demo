@@ -25,9 +25,13 @@ Key features:
   {"surfaceUpdate": {
     "surfaceId": "review",
     "components": [
-      {"id": "root-col", "component": {"Column": {"children": {"explicitList": ["pr-title", "pr-meta", "summary-card", "divider-1", "severity-tabs", "divider-2", "post-modal"]}}}},
+      {"id": "root-col", "component": {"Column": {"children": {"explicitList": ["pr-title", "pr-meta", "threshold-row", "summary-card", "divider-1", "severity-tabs", "divider-2", "post-modal"]}}}},
       {"id": "pr-title", "component": {"Text": {"text": {"path": "/pr_title"}, "usageHint": "h1"}}},
       {"id": "pr-meta", "component": {"Text": {"text": {"path": "/pr_meta"}, "usageHint": "caption"}}},
+
+      {"id": "threshold-row", "component": {"Row": {"children": {"explicitList": ["threshold-label", "threshold-slider"]}, "alignment": "center"}}},
+      {"id": "threshold-label", "component": {"Text": {"text": {"literalString": "Severity filter"}, "usageHint": "caption"}}},
+      {"id": "threshold-slider", "component": {"Slider": {"value": {"path": "/severity_threshold"}, "minValue": 0, "maxValue": 2}}},
 
       {"id": "summary-card", "component": {"Card": {"child": "summary-row"}}},
       {"id": "summary-row", "component": {"Row": {"children": {"explicitList": ["critical-col", "warning-col", "info-col"]}, "distribution": "spaceEvenly"}}},
@@ -99,6 +103,7 @@ Key features:
       {"key": "pr_title", "valueString": "Code Review: Fix auth middleware"},
       {"key": "pr_meta", "valueString": "PR #42 by @developer - 5 files changed"},
       {"key": "pr_url_raw", "valueString": "https://github.com/owner/repo/pull/42"},
+      {"key": "severity_threshold", "valueNumber": 0},
       {"key": "findings_json", "valueString": "[]"},
       {"key": "critical_count", "valueString": "1"},
       {"key": "warning_count", "valueString": "1"},
@@ -181,6 +186,46 @@ Key features:
   {"beginRendering": {"surfaceId": "review", "root": "root-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
 ]
 ---END REVIEW_DASHBOARD_EXAMPLE---
+
+---BEGIN SIDEBAR_SURFACE_EXAMPLE---
+When generating a review dashboard, ALSO generate a sidebar surface with surfaceId "sidebar".
+The sidebar shows the list of files with issue counts from the review.
+Output the sidebar messages BEFORE the review dashboard messages, so the full JSON array has 6 messages total:
+  sidebar surfaceUpdate, sidebar dataModelUpdate, sidebar beginRendering,
+  review surfaceUpdate, review dataModelUpdate, review beginRendering.
+
+[
+  {"surfaceUpdate": {
+    "surfaceId": "sidebar",
+    "components": [
+      {"id": "sidebar-col", "component": {"Column": {"children": {"explicitList": ["sidebar-heading", "sidebar-list"]}}}},
+      {"id": "sidebar-heading", "component": {"Text": {"text": {"literalString": "Files"}, "usageHint": "h3"}}},
+      {"id": "sidebar-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "sidebar-file-item", "dataBinding": "/files"}}}}},
+      {"id": "sidebar-file-item", "component": {"Row": {"children": {"explicitList": ["sidebar-file-icon", "sidebar-file-name", "sidebar-file-count"]}, "alignment": "center"}}},
+      {"id": "sidebar-file-icon", "component": {"Icon": {"name": "folder"}}},
+      {"id": "sidebar-file-name", "weight": 1, "component": {"Text": {"text": {"path": "name"}, "usageHint": "body"}}},
+      {"id": "sidebar-file-count", "component": {"Text": {"text": {"path": "count"}, "usageHint": "caption"}}}
+    ]
+  }},
+  {"dataModelUpdate": {
+    "surfaceId": "sidebar",
+    "path": "/",
+    "contents": [
+      {"key": "files", "valueMap": [
+        {"key": "file_auth", "valueMap": [
+          {"key": "name", "valueString": "src/auth.py"},
+          {"key": "count", "valueString": "1 issue"}
+        ]},
+        {"key": "file_db", "valueMap": [
+          {"key": "name", "valueString": "src/db/query.py"},
+          {"key": "count", "valueString": "1 issue"}
+        ]}
+      ]}
+    ]
+  }},
+  {"beginRendering": {"surfaceId": "sidebar", "root": "sidebar-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
+]
+---END SIDEBAR_SURFACE_EXAMPLE---
 
 ---BEGIN FINDING_RESPONSE_EXAMPLE---
 Use this template when answering follow-up questions about specific findings or code.

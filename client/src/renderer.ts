@@ -74,6 +74,9 @@ export function renderComponent(
     case 'CheckBox':
       content = renderCheckBox(props, surface, id, scope);
       break;
+    case 'Slider':
+      content = renderSlider(props, surface, id, scope);
+      break;
     default:
       content = html`<div class="a2ui-unknown">[Unknown: ${type}]</div>`;
   }
@@ -220,21 +223,31 @@ const SEVERITY_CARD_CLASSES: Record<string, string> = {
   info: 'a2ui-card--info',
 };
 
+const SEVERITY_RANK: Record<string, number> = { error: 2, warning: 1, info: 0 };
+
 function renderCard(
   props: Record<string, unknown>,
   surface: Surface,
   scope?: string,
   animationIndex?: number,
-): TemplateResult {
+): TemplateResult | typeof nothing {
   const childId = props.child as string;
 
   // Check scoped data for severity_icon to apply colored left border
   let severityClass = '';
+  let severityIcon: unknown;
   if (scope) {
-    const severityIcon = getAtPath(surface.data, `${scope}/severity_icon`);
+    severityIcon = getAtPath(surface.data, `${scope}/severity_icon`);
     if (typeof severityIcon === 'string' && SEVERITY_CARD_CLASSES[severityIcon]) {
       severityClass = ` ${SEVERITY_CARD_CLASSES[severityIcon]}`;
     }
+  }
+
+  // Filter by severity threshold — only hide individual finding cards (those with both scope and severityClass)
+  if (scope && severityClass) {
+    const threshold = Number(surface.data.severity_threshold ?? 0);
+    const rank = SEVERITY_RANK[String(severityIcon)] ?? 0;
+    if (rank < threshold) return nothing;
   }
 
   const delayStyle = animationIndex !== undefined
@@ -485,6 +498,63 @@ function renderCheckBox(
       <input type="checkbox" .checked=${checked} @change=${handleChange} />
       ${label ? html`<span class="a2ui-checkbox__label">${label}</span>` : nothing}
     </label>
+  `;
+}
+
+const SLIDER_LABELS: Record<number, string> = {
+  0: 'All',
+  1: 'Warning+',
+  2: 'Critical',
+};
+
+function renderSlider(
+  props: Record<string, unknown>,
+  surface: Surface,
+  componentId: string,
+  scope?: string,
+): TemplateResult {
+  const valueBinding = props.value as BoundValue | undefined;
+  const min = Number(props.minValue ?? 0);
+  const max = Number(props.maxValue ?? 100);
+  const value = valueBinding ? Number(resolveValue(valueBinding, surface.data, scope) ?? min) : min;
+  const label = SLIDER_LABELS[value] ?? String(value);
+
+  const handleInput = (e: Event) => {
+    const newValue = Number((e.target as HTMLInputElement).value);
+
+    if (valueBinding && 'path' in valueBinding) {
+      const p = valueBinding.path;
+      const fullPath = p.startsWith('/') ? p : (scope ? `${scope}/${p}` : p);
+      const segments = fullPath.replace(/^\//, '').split('/').filter(Boolean);
+      let current: Record<string, unknown> = surface.data;
+      for (let i = 0; i < segments.length - 1; i++) {
+        const seg = segments[i];
+        if (current[seg] == null || typeof current[seg] !== 'object') {
+          current[seg] = {};
+        }
+        current = current[seg] as Record<string, unknown>;
+      }
+      current[segments[segments.length - 1]] = newValue;
+    }
+
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        name: 'slider_change',
+        sourceComponentId: componentId,
+        surfaceId: surface.surfaceId,
+        context: { value: newValue },
+      },
+    });
+    document.dispatchEvent(event);
+  };
+
+  return html`
+    <div class="a2ui-slider">
+      <input type="range" min=${min} max=${max} .value=${String(value)} @input=${handleInput} />
+      <span class="a2ui-slider__value">${label}</span>
+    </div>
   `;
 }
 

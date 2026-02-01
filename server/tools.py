@@ -191,6 +191,7 @@ def post_github_review(
     position_map = _build_position_map(owner, repo, pr_number, headers)
 
     comments: list[dict[str, str | int]] = []
+    body_only_findings: list[str] = []
     for finding in findings:
         file_path_raw = finding.get("file_path", "")
         description = finding.get("description", "")
@@ -212,24 +213,26 @@ def post_github_review(
         severity_emoji = {"error": "\u274c", "warning": "\u26a0\ufe0f", "info": "\u2139\ufe0f"}.get(severity, "")
         comment_body = f"{severity_emoji} **{severity.upper()}**: {description}"
 
-        # Look up the real diff position
+        # Look up whether this line is in the diff
         file_positions = position_map.get(path, {})
-        diff_position = file_positions.get(line) if line else None
+        resolved_line = line
 
-        if diff_position:
-            comments.append({"path": path, "body": comment_body, "position": diff_position})
-        elif line and file_positions:
-            # Line not exactly in diff — find closest line that IS in the diff
+        if line and not file_positions.get(line) and file_positions:
+            # Line not exactly in diff — snap to closest line within 10 lines
             closest = min(file_positions.keys(), key=lambda l: abs(l - line))
             if abs(closest - line) <= 10:
-                comments.append({"path": path, "body": comment_body, "position": file_positions[closest]})
+                resolved_line = closest
                 logger.info(f"  - Snapped line {line} to {closest} for {path}")
             else:
-                # Too far from any diff line — file-level comment
-                comments.append({"path": path, "body": comment_body, "subject_type": "file"})
+                resolved_line = None
+
+        if resolved_line and file_positions.get(resolved_line):
+            # Use line + side (more reliable than position-based approach)
+            comments.append({"path": path, "body": comment_body, "line": resolved_line, "side": "RIGHT"})
         else:
-            # No position data for this file
-            comments.append({"path": path, "body": comment_body, "subject_type": "file"})
+            # Line not in diff — add to review body instead of inline comment
+            body_only_findings.append(f"- {severity_emoji} **{path}:{line or '?'}** — {description}")
+            logger.info(f"  - Line {line} not in diff for {path}, adding to body")
 
     # Build a structured review body from findings
     severity_counts: dict[str, int] = {"error": 0, "warning": 0, "info": 0}
@@ -258,10 +261,12 @@ def post_github_review(
     if severity_counts.get("info"):
         body_lines.append(f"| ℹ️ Info | {severity_counts['info']} |")
 
-    body_lines += [
-        "",
-        "See inline comments below for details.",
-    ]
+    if body_only_findings:
+        body_lines += ["", "### Additional findings (not in diff)", ""]
+        body_lines += body_only_findings
+
+    if comments:
+        body_lines += ["", "See inline comments below for details."]
     formatted_body = "\n".join(body_lines)
 
     review_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
