@@ -33,6 +33,7 @@ export class AppShell extends LitElement {
   private taskId: string | undefined;
   private inputValue = '';
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private toastDismissTimer: ReturnType<typeof setTimeout> | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -235,6 +236,7 @@ export class AppShell extends LitElement {
 
   private showToast(message: string, link: string): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    if (this.toastDismissTimer) clearTimeout(this.toastDismissTimer);
     this.toastMessage = message;
     this.toastLink = link;
     this.toastVisible = true;
@@ -247,11 +249,13 @@ export class AppShell extends LitElement {
       clearTimeout(this.toastTimer);
       this.toastTimer = null;
     }
+    if (this.toastDismissTimer) clearTimeout(this.toastDismissTimer);
     this.toastDismissing = true;
-    setTimeout(() => {
+    this.toastDismissTimer = setTimeout(() => {
       this.toastVisible = false;
       this.toastDismissing = false;
-    }, 200); // match slideOutRight duration
+      this.toastDismissTimer = null;
+    }, 200);
   }
 
   private async handleChat(): Promise<void> {
