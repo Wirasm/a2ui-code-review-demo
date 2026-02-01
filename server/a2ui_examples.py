@@ -72,7 +72,7 @@ Key features:
       {"id": "file-findings-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "finding-card", "dataBinding": "findings"}}}}},
 
       {"id": "finding-card", "component": {"Card": {"child": "finding-col"}}},
-      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "related-issues-section", "finding-actions"]}}}},
+      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "related-items", "finding-actions"]}}}},
       {"id": "finding-header", "component": {"Row": {"children": {"explicitList": ["finding-checkbox", "severity-icon", "finding-location", "github-link-text"]}, "alignment": "center"}}},
       {"id": "finding-checkbox", "component": {"CheckBox": {"label": {"literalString": ""}, "value": {"path": "selected"}}}},
       {"id": "severity-icon", "component": {"Icon": {"name": {"path": "severity_icon"}}}},
@@ -80,8 +80,6 @@ Key features:
       {"id": "github-link-text", "component": {"Text": {"text": {"path": "github_url"}, "usageHint": "caption"}}},
       {"id": "finding-diff", "component": {"Text": {"text": {"path": "diff_snippet"}, "usageHint": "body"}}},
       {"id": "finding-desc", "component": {"Text": {"text": {"path": "description"}, "usageHint": "body"}}},
-      {"id": "related-issues-section", "component": {"Column": {"children": {"explicitList": ["related-heading", "related-items"]}}}},
-      {"id": "related-heading", "component": {"Text": {"text": {"literalString": "Possibly related:"}, "usageHint": "caption"}}},
       {"id": "related-items", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "related-issue-row", "dataBinding": "related_issues"}}}}},
       {"id": "related-issue-row", "component": {"Row": {"children": {"explicitList": ["related-issue-text", "related-issue-link"]}, "alignment": "center"}}},
       {"id": "related-issue-text", "weight": 1, "component": {"Text": {"text": {"path": "label"}, "usageHint": "caption"}}},

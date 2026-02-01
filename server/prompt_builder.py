@@ -87,8 +87,8 @@ To generate the response, you MUST follow these rules:
 - Call `search_github_issues` with those keywords for each finding.
 - Include matches in the finding's data model as `related_issues` valueMap.
 - Each related issue has: label (valueString formatted as "#N — title"), url (valueString with the issue URL).
-- If no matches found, set related_issues to an empty valueMap [].
-- The finding card template includes a related-issues-list that renders from this data.
+- If no matches found, set related_issues to an empty valueMap []. The empty list renders nothing in the UI.
+- The finding card template includes a related-items List that renders from this data. No heading is needed — the "#N — title" format is self-explanatory.
 
 --- SUGGESTED CLOSURES ---
 - After generating all findings, check if any open issues match what the PR is fixing.
