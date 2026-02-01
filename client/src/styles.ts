@@ -443,6 +443,147 @@ export const appStyles = css`
     color: #656d76;
   }
 
+  /* Side-by-side diff grid */
+  .a2ui-diff--split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1px;
+    background: #e0e0e0;
+  }
+
+  .a2ui-diff-row {
+    display: contents;
+  }
+
+  .a2ui-diff-col {
+    padding: 1px 8px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    white-space: pre;
+    min-height: 1.5em;
+    line-height: 1.5;
+    background: #f6f8fa;
+  }
+
+  .a2ui-diff-col--del {
+    background: #ffebe9;
+    color: #cf222e;
+  }
+
+  .a2ui-diff-col--add {
+    background: #dafbe1;
+    color: #1a7f37;
+  }
+
+  .a2ui-diff-col--ctx {
+    grid-column: 1 / -1;
+    color: #656d76;
+  }
+
+  .a2ui-diff-col--empty {
+    background: #f6f8fa;
+  }
+
+  /* Severity bar */
+  .severity-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .severity-bar__segment {
+    min-width: 0;
+    transition: width 0.3s ease;
+  }
+
+  .severity-bar__segment--critical {
+    background: #cf222e;
+  }
+
+  .severity-bar__segment--warning {
+    background: #bf8700;
+  }
+
+  .severity-bar__segment--info {
+    background: #0969da;
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    max-width: 400px;
+    animation: slideInRight 0.3s ease-out both;
+  }
+
+  .toast--hidden {
+    display: none;
+  }
+
+  .toast--dismissing {
+    animation: slideOutRight 0.2s ease-in forwards;
+  }
+
+  .toast__icon .material-icons {
+    color: #1a7f37;
+    font-size: 24px;
+  }
+
+  .toast__content {
+    flex: 1;
+  }
+
+  .toast__message {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1a1a2e;
+  }
+
+  .toast__link {
+    font-size: 0.8rem;
+    color: #1a73e8;
+    text-decoration: none;
+    margin-top: 4px;
+    display: block;
+  }
+
+  .toast__link:hover {
+    text-decoration: underline;
+  }
+
+  .toast__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 4px;
+  }
+
+  .toast__close:hover {
+    color: #1a1a2e;
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(100px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideOutRight {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(100px); }
+  }
+
   /* Severity count colors */
   .a2ui-count--critical {
     color: #cf222e;
