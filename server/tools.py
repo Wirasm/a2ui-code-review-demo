@@ -87,6 +87,60 @@ def fetch_pr_diff(pr_url: str, tool_context: ToolContext) -> str:
     return json.dumps(result)
 
 
+def _build_position_map(
+    owner: str, repo: str, pr_number: str, headers: dict[str, str],
+) -> dict[str, dict[int, int]]:
+    """Fetch PR files and build a mapping from (filename, line) to diff position.
+
+    Returns: {filename: {new_file_line_number: diff_position}}
+    """
+    files_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
+    try:
+        resp = requests.get(files_url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        files = resp.json()
+    except requests.RequestException as e:
+        logger.warning(f"  - Failed to fetch PR files for position map: {e}")
+        return {}
+
+    position_map: dict[str, dict[int, int]] = {}
+    for f in files:
+        filename = f.get("filename", "")
+        patch = f.get("patch", "")
+        if not patch:
+            continue
+
+        file_positions: dict[int, int] = {}
+        position = 0
+        new_line = 0
+
+        for line in patch.split("\n"):
+            if line.startswith("@@"):
+                # Parse @@ -old_start,old_count +new_start,new_count @@
+                m = re.search(r"\+(\d+)", line)
+                if m:
+                    new_line = int(m.group(1)) - 1
+                position += 1
+                continue
+
+            position += 1
+
+            if line.startswith("-"):
+                pass  # Deletion — no new file line
+            elif line.startswith("+"):
+                new_line += 1
+                file_positions[new_line] = position
+            else:
+                # Context line
+                new_line += 1
+                file_positions[new_line] = position
+
+        position_map[filename] = file_positions
+
+    logger.info(f"  - Position map built for {len(position_map)} files")
+    return position_map
+
+
 def post_github_review(
     pr_url: str,
     review_body: str,
@@ -133,6 +187,9 @@ def post_github_review(
         logger.error(f"  - Failed to parse findings_json: {e}")
         findings = []
 
+    # Build position map from actual PR diff
+    position_map = _build_position_map(owner, repo, pr_number, headers)
+
     comments: list[dict[str, str | int]] = []
     for finding in findings:
         file_path_raw = finding.get("file_path", "")
@@ -152,20 +209,31 @@ def post_github_review(
             except ValueError:
                 line = None
 
-        severity_prefix = f"[{severity.upper()}] " if severity else ""
-        comment: dict[str, str | int] = {
-            "path": path,
-            "body": f"{severity_prefix}{description}",
-        }
-        if line is not None:
-            comment["position"] = line
+        severity_emoji = {"error": "\u274c", "warning": "\u26a0\ufe0f", "info": "\u2139\ufe0f"}.get(severity, "")
+        comment_body = f"{severity_emoji} **{severity.upper()}**: {description}"
 
-        comments.append(comment)
+        # Look up the real diff position
+        file_positions = position_map.get(path, {})
+        diff_position = file_positions.get(line) if line else None
+
+        if diff_position:
+            comments.append({"path": path, "body": comment_body, "position": diff_position})
+        elif line and file_positions:
+            # Line not exactly in diff — find closest line that IS in the diff
+            closest = min(file_positions.keys(), key=lambda l: abs(l - line))
+            if abs(closest - line) <= 10:
+                comments.append({"path": path, "body": comment_body, "position": file_positions[closest]})
+                logger.info(f"  - Snapped line {line} to {closest} for {path}")
+            else:
+                # Too far from any diff line — file-level comment
+                comments.append({"path": path, "body": comment_body, "subject_type": "file"})
+        else:
+            # No position data for this file
+            comments.append({"path": path, "body": comment_body, "subject_type": "file"})
 
     review_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
     event_value = event if event in ("APPROVE", "REQUEST_CHANGES", "COMMENT") else "COMMENT"
 
-    # Try with inline comments first, fall back to body-only if positions can't resolve
     payload: dict[str, str | list[dict[str, str | int]]] = {
         "body": review_body,
         "event": event_value,
@@ -177,38 +245,12 @@ def post_github_review(
         resp = requests.post(review_url, headers=headers, json=payload, timeout=30)
         resp.raise_for_status()
     except requests.RequestException as e:
+        error_detail = ""
         resp_obj = getattr(e, "response", None)
-        is_position_error = (
-            resp_obj is not None
-            and resp_obj.status_code == 422
-            and "osition" in resp_obj.text
-            and comments
-        )
-        if is_position_error:
-            logger.warning("  - Inline comments failed (position resolution). Falling back to body-only review.")
-            # Build a body with all findings listed
-            body_lines = [review_body, ""]
-            for c in comments:
-                body_lines.append(f"**{c['path']}** — {c['body']}")
-            fallback_payload: dict[str, str] = {
-                "body": "\n".join(body_lines),
-                "event": event_value,
-            }
-            try:
-                resp = requests.post(review_url, headers=headers, json=fallback_payload, timeout=30)
-                resp.raise_for_status()
-            except requests.RequestException as e2:
-                error_detail = ""
-                if hasattr(e2, "response") and e2.response is not None:
-                    error_detail = f" Response: {e2.response.text[:500]}"
-                logger.error(f"  - Fallback review also failed: {e2}{error_detail}")
-                return json.dumps({"error": f"Failed to post review: {e2}{error_detail}"})
-        else:
-            error_detail = ""
-            if resp_obj is not None:
-                error_detail = f" Response: {resp_obj.text[:500]}"
-            logger.error(f"  - Failed to post review: {e}{error_detail}")
-            return json.dumps({"error": f"Failed to post review: {e}{error_detail}"})
+        if resp_obj is not None:
+            error_detail = f" Response: {resp_obj.text[:500]}"
+        logger.error(f"  - Failed to post review: {e}{error_detail}")
+        return json.dumps({"error": f"Failed to post review: {e}{error_detail}"})
 
     result = resp.json()
     html_url = result.get("html_url", "")
