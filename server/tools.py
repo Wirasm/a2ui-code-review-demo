@@ -163,9 +163,12 @@ def post_github_review(
         comments.append(comment)
 
     review_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
+    event_value = event if event in ("APPROVE", "REQUEST_CHANGES", "COMMENT") else "COMMENT"
+
+    # Try with inline comments first, fall back to body-only if positions can't resolve
     payload: dict[str, str | list[dict[str, str | int]]] = {
         "body": review_body,
-        "event": event if event in ("APPROVE", "REQUEST_CHANGES", "COMMENT") else "COMMENT",
+        "event": event_value,
     }
     if comments:
         payload["comments"] = comments
@@ -173,20 +176,48 @@ def post_github_review(
     try:
         resp = requests.post(review_url, headers=headers, json=payload, timeout=30)
         resp.raise_for_status()
-        result = resp.json()
-        html_url = result.get("html_url", "")
-        logger.info(f"  - Success: Review posted at {html_url}")
-        return json.dumps({
-            "success": True,
-            "review_url": html_url,
-            "comments_posted": len(comments),
-        })
     except requests.RequestException as e:
-        error_detail = ""
-        if hasattr(e, "response") and e.response is not None:
-            error_detail = f" Response: {e.response.text[:500]}"
-        logger.error(f"  - Failed to post review: {e}{error_detail}")
-        return json.dumps({"error": f"Failed to post review: {e}{error_detail}"})
+        resp_obj = getattr(e, "response", None)
+        is_position_error = (
+            resp_obj is not None
+            and resp_obj.status_code == 422
+            and "osition" in resp_obj.text
+            and comments
+        )
+        if is_position_error:
+            logger.warning("  - Inline comments failed (position resolution). Falling back to body-only review.")
+            # Build a body with all findings listed
+            body_lines = [review_body, ""]
+            for c in comments:
+                body_lines.append(f"**{c['path']}** — {c['body']}")
+            fallback_payload: dict[str, str] = {
+                "body": "\n".join(body_lines),
+                "event": event_value,
+            }
+            try:
+                resp = requests.post(review_url, headers=headers, json=fallback_payload, timeout=30)
+                resp.raise_for_status()
+            except requests.RequestException as e2:
+                error_detail = ""
+                if hasattr(e2, "response") and e2.response is not None:
+                    error_detail = f" Response: {e2.response.text[:500]}"
+                logger.error(f"  - Fallback review also failed: {e2}{error_detail}")
+                return json.dumps({"error": f"Failed to post review: {e2}{error_detail}"})
+        else:
+            error_detail = ""
+            if resp_obj is not None:
+                error_detail = f" Response: {resp_obj.text[:500]}"
+            logger.error(f"  - Failed to post review: {e}{error_detail}")
+            return json.dumps({"error": f"Failed to post review: {e}{error_detail}"})
+
+    result = resp.json()
+    html_url = result.get("html_url", "")
+    logger.info(f"  - Success: Review posted at {html_url}")
+    return json.dumps({
+        "success": True,
+        "review_url": html_url,
+        "comments_posted": len(comments),
+    })
 
 
 def _fetch_pr_files_fallback(
