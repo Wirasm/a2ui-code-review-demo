@@ -9,6 +9,12 @@ import { appStyles } from '../styles.js';
 
 const SERVER_URL = 'http://localhost:10002';
 
+interface ReviewHistoryEntry {
+  timestamp: Date;
+  commentCount: string;
+  reviewUrl: string;
+}
+
 @customElement('app-shell')
 export class AppShell extends LitElement {
   static override styles = appStyles;
@@ -26,6 +32,8 @@ export class AppShell extends LitElement {
   @state() private toastLink = '';
   @state() private toastVisible = false;
   @state() private toastDismissing = false;
+  @state() private reviewHistory: ReviewHistoryEntry[] = [];
+  @state() private historyExpanded = true;
 
   private client: A2AClient | null = null;
   private surfaceManager = new SurfaceManager();
@@ -54,9 +62,15 @@ export class AppShell extends LitElement {
     };
 
     // Client-only actions that don't need a server round-trip
-    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel' || detail.name === 'tab_switch') {
+    if (detail.name === 'toggle_finding' || detail.name === 'modal_cancel' || detail.name === 'tab_switch' || detail.name === 'slider_change') {
       if (detail.name === 'toggle_finding') {
         this.updateSelectedCount(detail.surfaceId);
+      }
+      if (detail.name === 'slider_change') {
+        const surface = this.surfaceManager.getSurface(detail.surfaceId);
+        if (surface) {
+          surface.data.severity_threshold = Number(detail.context.value);
+        }
       }
       this.renderKey++;
       return;
@@ -227,6 +241,14 @@ export class AppShell extends LitElement {
 
         // Show toast
         this.showToast(message, link);
+
+        // Record in review history
+        const countMatch = message.match(/(\d+)/);
+        this.reviewHistory = [...this.reviewHistory, {
+          timestamp: new Date(),
+          commentCount: countMatch ? countMatch[1] : '?',
+          reviewUrl: link,
+        }];
       }
 
       this.activeSurfaces = this.surfaceManager.getReadySurfaces();
@@ -301,6 +323,47 @@ export class AppShell extends LitElement {
     }
   }
 
+  private renderMainSurface(surface: Surface) {
+    const critical = parseInt(String(surface.data.critical_count ?? ''), 10) || 0;
+    const warning = parseInt(String(surface.data.warning_count ?? ''), 10) || 0;
+    const info = parseInt(String(surface.data.info_count ?? ''), 10) || 0;
+    const total = critical + warning + info;
+    return html`
+      <div class="surface-container" key=${`${surface.surfaceId}-${this.renderKey}`}>
+        ${total > 0 ? html`
+          <div class="severity-bar">
+            <div class="severity-bar__segment severity-bar__segment--critical" style="width:${(critical / total) * 100}%"></div>
+            <div class="severity-bar__segment severity-bar__segment--warning" style="width:${(warning / total) * 100}%"></div>
+            <div class="severity-bar__segment severity-bar__segment--info" style="width:${(info / total) * 100}%"></div>
+          </div>
+        ` : nothing}
+        ${renderComponent(surface.root, surface)}
+      </div>
+    `;
+  }
+
+  private renderSurfaces() {
+    if (this.activeSurfaces.length === 0) return nothing;
+
+    const sidebar = this.activeSurfaces.find(s => s.surfaceId === 'sidebar');
+    const mainSurfaces = this.activeSurfaces.filter(s => s.surfaceId !== 'sidebar');
+
+    if (sidebar) {
+      return html`
+        <div class="surfaces-layout">
+          <div class="surface-container surface-container--sidebar" key=${`sidebar-${this.renderKey}`}>
+            ${renderComponent(sidebar.root, sidebar)}
+          </div>
+          <div class="surfaces-main">
+            ${mainSurfaces.map(surface => this.renderMainSurface(surface))}
+          </div>
+        </div>
+      `;
+    }
+
+    return mainSurfaces.map(surface => this.renderMainSurface(surface));
+  }
+
   override render() {
     return html`
       <div class="header">
@@ -343,26 +406,32 @@ export class AppShell extends LitElement {
         ? html`<div class="text-response">${this.textResponse}</div>`
         : nothing}
 
-      ${this.activeSurfaces.map(
-        (surface) => {
-          const critical = parseInt(String(surface.data.critical_count ?? ''), 10) || 0;
-          const warning = parseInt(String(surface.data.warning_count ?? ''), 10) || 0;
-          const info = parseInt(String(surface.data.info_count ?? ''), 10) || 0;
-          const total = critical + warning + info;
-          return html`
-            <div class="surface-container" key=${`${surface.surfaceId}-${this.renderKey}`}>
-              ${total > 0 ? html`
-                <div class="severity-bar">
-                  <div class="severity-bar__segment severity-bar__segment--critical" style="width:${(critical / total) * 100}%"></div>
-                  <div class="severity-bar__segment severity-bar__segment--warning" style="width:${(warning / total) * 100}%"></div>
-                  <div class="severity-bar__segment severity-bar__segment--info" style="width:${(info / total) * 100}%"></div>
+      ${this.renderSurfaces()}
+
+      ${this.reviewHistory.length > 0 ? html`
+        <div class="review-history">
+          <button class="review-history__toggle" @click=${() => { this.historyExpanded = !this.historyExpanded; }}>
+            <span class="material-icons">${this.historyExpanded ? 'expand_more' : 'chevron_right'}</span>
+            ${this.reviewHistory.length} review${this.reviewHistory.length !== 1 ? 's' : ''} posted
+          </button>
+          ${this.historyExpanded ? html`
+            <div class="review-history__list">
+              ${this.reviewHistory.map(entry => html`
+                <div class="review-history__item">
+                  <span class="material-icons">check_circle</span>
+                  <div class="review-history__meta">
+                    <div class="review-history__count">${entry.commentCount} comments posted</div>
+                    <div class="review-history__time">${entry.timestamp.toLocaleTimeString()}</div>
+                  </div>
+                  ${entry.reviewUrl ? html`
+                    <a class="review-history__link" href=${entry.reviewUrl} target="_blank" rel="noopener noreferrer">View</a>
+                  ` : nothing}
                 </div>
-              ` : nothing}
-              ${renderComponent(surface.root, surface)}
+              `)}
             </div>
-          `;
-        },
-      )}
+          ` : nothing}
+        </div>
+      ` : nothing}
 
       ${this.activeSurfaces.length > 0
         ? html`

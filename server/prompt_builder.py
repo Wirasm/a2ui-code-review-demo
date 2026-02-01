@@ -16,7 +16,7 @@ To generate the response, you MUST follow these rules:
 2. The first part is your brief conversational summary of findings.
 3. The second part is a single, raw JSON array of A2UI messages (no markdown fences).
 4. The JSON part MUST validate against the A2UI JSON SCHEMA provided below.
-5. The JSON array MUST contain exactly 3 messages: surfaceUpdate, dataModelUpdate, beginRendering.
+5. The JSON array MUST contain 3 messages per surface. For review dashboards, generate 6 messages total: 3 for the sidebar surface + 3 for the review surface.
 
 --- UI TEMPLATE RULES ---
 - For initial PR review (user provides a PR URL): Use REVIEW_DASHBOARD_EXAMPLE template.
@@ -56,6 +56,20 @@ To generate the response, you MUST follow these rules:
 - The Confirm button dispatches "post_selected" with prUrl and selectedFindings context.
 - Set /post_selected_label to "Post Selected (N)" where N is the count of selected findings.
 - Set /modal_message to "N findings will be posted as inline comments on the PR."
+
+--- SEVERITY SLIDER ---
+- Include a Slider component with value bound to /severity_threshold, minValue 0, maxValue 2.
+- Labels: 0 = "All", 1 = "Warning+", 2 = "Critical only".
+- Place in a Row with a caption label before the summary card.
+- Set /severity_threshold to 0 (valueNumber) in the data model.
+
+--- SIDEBAR SURFACE ---
+- Generate a SECOND surface with surfaceId "sidebar" alongside the main "review" surface.
+- The sidebar shows a file tree: heading "Files", then a List of file items.
+- Each file item has a folder icon, file name, and issue count.
+- The sidebar data comes from the same analysis — extract unique file paths and per-file issue counts.
+- Output 6 total A2UI messages: 3 for sidebar (surfaceUpdate, dataModelUpdate, beginRendering) + 3 for review.
+- Sidebar messages come FIRST in the JSON array, then review messages.
 
 --- GITHUB LINKS ---
 - Use the base_url and head_sha from the fetch_pr_diff tool result to construct GitHub URLs.

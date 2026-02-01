@@ -3,7 +3,7 @@ import { css } from 'lit';
 export const appStyles = css`
   :host {
     display: block;
-    max-width: 800px;
+    max-width: 1060px;
     margin: 0 auto;
     padding: 24px;
     font-family: 'Roboto', system-ui, sans-serif;
@@ -405,11 +405,61 @@ export const appStyles = css`
     color: #1a1a2e;
   }
 
+  /* Slider */
+  .a2ui-slider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .a2ui-slider input[type="range"] {
+    flex: 1;
+    accent-color: #1a73e8;
+    height: 4px;
+    cursor: pointer;
+  }
+
+  .a2ui-slider__value {
+    font-size: 0.8rem;
+    color: #666;
+    min-width: 4em;
+    text-align: center;
+  }
+
+  /* Multi-surface layout */
+  .surfaces-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .surfaces-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .surface-container {
     background: #f0f2f5;
     border-radius: 12px;
     padding: 20px;
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .surface-container--sidebar {
+    position: sticky;
+    top: 24px;
+  }
+
+  @media (max-width: 700px) {
+    .surfaces-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .surface-container--sidebar {
+      position: static;
+    }
   }
 
   /* Diff block styling */
@@ -686,5 +736,79 @@ export const appStyles = css`
   .chat-row button:disabled {
     background: #a0c4f1;
     cursor: not-allowed;
+  }
+
+  /* Review history */
+  .review-history {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 12px;
+  }
+
+  .review-history__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .review-history__toggle .material-icons {
+    font-size: 18px;
+    transition: transform 0.2s;
+  }
+
+  .review-history__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .review-history__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: white;
+    border-radius: 8px;
+    animation: fadeInUp 0.2s ease-out both;
+  }
+
+  .review-history__item .material-icons {
+    color: #1a7f37;
+    font-size: 18px;
+  }
+
+  .review-history__meta {
+    flex: 1;
+  }
+
+  .review-history__count {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1a1a2e;
+  }
+
+  .review-history__time {
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .review-history__link {
+    font-size: 0.8rem;
+    color: #1a73e8;
+    text-decoration: none;
+  }
+
+  .review-history__link:hover {
+    text-decoration: underline;
   }
 `;
