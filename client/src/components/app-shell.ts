@@ -22,12 +22,17 @@ export class AppShell extends LitElement {
   @state() private renderKey = 0;
 
   @state() private chatInput = '';
+  @state() private toastMessage = '';
+  @state() private toastLink = '';
+  @state() private toastVisible = false;
+  @state() private toastDismissing = false;
 
   private client: A2AClient | null = null;
   private surfaceManager = new SurfaceManager();
   private contextId: string | undefined;
   private taskId: string | undefined;
   private inputValue = '';
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -197,10 +202,56 @@ export class AppShell extends LitElement {
     }
 
     if (collectedA2UI.length > 0) {
+      // Snapshot the review surface before processing so we can restore it if this is a post result
+      const reviewSurface = this.surfaceManager.getSurface('review');
+      const snapshot = reviewSurface ? {
+        components: new Map(reviewSurface.components),
+        data: { ...reviewSurface.data },
+        root: reviewSurface.root,
+      } : null;
+
       this.surfaceManager.processBatch(collectedA2UI);
+
+      // Detect post result: the review surface root changed to "result-col"
+      const updatedReview = this.surfaceManager.getSurface('review');
+      if (updatedReview && updatedReview.root === 'result-col' && snapshot) {
+        // Extract toast data before restoring
+        const message = String(updatedReview.data.result_message ?? 'Review posted');
+        const link = String(updatedReview.data.result_link ?? '');
+
+        // Restore the dashboard
+        updatedReview.components = snapshot.components;
+        updatedReview.data = snapshot.data;
+        updatedReview.root = snapshot.root;
+
+        // Show toast
+        this.showToast(message, link);
+      }
+
       this.activeSurfaces = this.surfaceManager.getReadySurfaces();
       this.renderKey++;
     }
+  }
+
+  private showToast(message: string, link: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastMessage = message;
+    this.toastLink = link;
+    this.toastVisible = true;
+    this.toastDismissing = false;
+    this.toastTimer = setTimeout(() => this.dismissToast(), 4000);
+  }
+
+  private dismissToast(): void {
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
+    this.toastDismissing = true;
+    setTimeout(() => {
+      this.toastVisible = false;
+      this.toastDismissing = false;
+    }, 200); // match slideOutRight duration
   }
 
   private async handleChat(): Promise<void> {
@@ -289,11 +340,24 @@ export class AppShell extends LitElement {
         : nothing}
 
       ${this.activeSurfaces.map(
-        (surface) => html`
-          <div class="surface-container" key=${`${surface.surfaceId}-${this.renderKey}`}>
-            ${renderComponent(surface.root, surface)}
-          </div>
-        `,
+        (surface) => {
+          const critical = parseInt(String(surface.data.critical_count ?? ''), 10) || 0;
+          const warning = parseInt(String(surface.data.warning_count ?? ''), 10) || 0;
+          const info = parseInt(String(surface.data.info_count ?? ''), 10) || 0;
+          const total = critical + warning + info;
+          return html`
+            <div class="surface-container" key=${`${surface.surfaceId}-${this.renderKey}`}>
+              ${total > 0 ? html`
+                <div class="severity-bar">
+                  <div class="severity-bar__segment severity-bar__segment--critical" style="width:${(critical / total) * 100}%"></div>
+                  <div class="severity-bar__segment severity-bar__segment--warning" style="width:${(warning / total) * 100}%"></div>
+                  <div class="severity-bar__segment severity-bar__segment--info" style="width:${(info / total) * 100}%"></div>
+                </div>
+              ` : nothing}
+              ${renderComponent(surface.root, surface)}
+            </div>
+          `;
+        },
       )}
 
       ${this.activeSurfaces.length > 0
@@ -309,6 +373,23 @@ export class AppShell extends LitElement {
               />
               <button @click=${this.handleChat} ?disabled=${this.loading || !this.chatInput.trim()}>
                 Send
+              </button>
+            </div>
+          `
+        : nothing}
+
+      ${this.toastVisible
+        ? html`
+            <div class="toast${this.toastDismissing ? ' toast--dismissing' : ''}">
+              <div class="toast__icon"><span class="material-icons">check_circle</span></div>
+              <div class="toast__content">
+                <div class="toast__message">${this.toastMessage}</div>
+                ${this.toastLink
+                  ? html`<a class="toast__link" href=${this.toastLink} target="_blank" rel="noopener noreferrer">View on GitHub</a>`
+                  : nothing}
+              </div>
+              <button class="toast__close" @click=${() => this.dismissToast()}>
+                <span class="material-icons">close</span>
               </button>
             </div>
           `

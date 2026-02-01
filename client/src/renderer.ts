@@ -99,21 +99,64 @@ function isDiffContent(text: string): boolean {
   return diffLineCount >= 2;
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function renderDiffBlock(text: string): TemplateResult {
   // Handle both real newlines and escaped \n
   const lines = text.includes('\n') ? text.split('\n') : text.split('\\n');
-  const lineHtml = lines
-    .map((line) => {
-      const trimmed = line.trimStart();
-      let cls = 'a2ui-diff-line a2ui-diff-line--ctx';
-      if (trimmed.startsWith('+')) cls = 'a2ui-diff-line a2ui-diff-line--add';
-      else if (trimmed.startsWith('-')) cls = 'a2ui-diff-line a2ui-diff-line--del';
-      // Escape HTML entities
-      const escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<div class="${cls}">${escaped}</div>`;
-    })
-    .join('');
-  return html`<pre class="a2ui-diff">${unsafeHTML(lineHtml)}</pre>`;
+
+  // Group consecutive - and + lines into paired rows
+  type DiffRow = { type: 'ctx'; text: string } | { type: 'pair'; del: string[]; add: string[] };
+  const rows: DiffRow[] = [];
+  let pendingDel: string[] = [];
+  let pendingAdd: string[] = [];
+
+  const flushPending = () => {
+    if (pendingDel.length > 0 || pendingAdd.length > 0) {
+      rows.push({ type: 'pair', del: pendingDel, add: pendingAdd });
+      pendingDel = [];
+      pendingAdd = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith('-')) {
+      // If we had pending adds without dels following, flush first
+      if (pendingAdd.length > 0 && pendingDel.length === 0) flushPending();
+      pendingDel.push(trimmed.slice(1));
+    } else if (trimmed.startsWith('+')) {
+      pendingAdd.push(trimmed.slice(1));
+    } else {
+      flushPending();
+      if (trimmed.length > 0) {
+        rows.push({ type: 'ctx', text: line });
+      }
+    }
+  }
+  flushPending();
+
+  const rowsHtml = rows.map((row) => {
+    if (row.type === 'ctx') {
+      return `<div class="a2ui-diff-row"><div class="a2ui-diff-col a2ui-diff-col--ctx">${escapeHtml(row.text)}</div></div>`;
+    }
+    const maxLen = Math.max(row.del.length, row.add.length);
+    let pairHtml = '';
+    for (let i = 0; i < maxLen; i++) {
+      const delLine = i < row.del.length
+        ? `<div class="a2ui-diff-col a2ui-diff-col--del">${escapeHtml(row.del[i])}</div>`
+        : '<div class="a2ui-diff-col a2ui-diff-col--empty"></div>';
+      const addLine = i < row.add.length
+        ? `<div class="a2ui-diff-col a2ui-diff-col--add">${escapeHtml(row.add[i])}</div>`
+        : '<div class="a2ui-diff-col a2ui-diff-col--empty"></div>';
+      pairHtml += `<div class="a2ui-diff-row">${delLine}${addLine}</div>`;
+    }
+    return pairHtml;
+  }).join('');
+
+  return html`<pre class="a2ui-diff a2ui-diff--split">${unsafeHTML(rowsHtml)}</pre>`;
 }
 
 function renderText(
