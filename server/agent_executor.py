@@ -83,6 +83,25 @@ class CodeReviewAgentExecutor(AgentExecutor):
                     f"event='COMMENT'. "
                     "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
                 )
+            elif action == "toggle_finding":
+                finding_id = ctx.get("findingId", "unknown")
+                selected = ctx.get("selected", True)
+                status = "selected" if selected else "deselected"
+                query = (
+                    f"The user {status} finding #{finding_id} for review posting. "
+                    "No UI update needed — just acknowledge."
+                )
+            elif action == "post_selected":
+                pr_url = ctx.get("prUrl", "")
+                findings = ctx.get("selectedFindings", "[]")
+                query = (
+                    f"The user wants to post SELECTED review findings to the GitHub PR. "
+                    f"Call the `post_github_review` tool with pr_url='{pr_url}', "
+                    f"review_body='AI Code Review - selected findings from analysis', "
+                    f"findings_json='{findings}', "
+                    f"event='COMMENT'. "
+                    "After posting, show a confirmation using the POST_REVIEW_RESULT_EXAMPLE template."
+                )
             else:
                 query = f"User action: {action} with context: {ctx}"
         else:

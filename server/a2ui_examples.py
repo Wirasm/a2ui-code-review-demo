@@ -11,13 +11,24 @@ Generate one finding card per issue found in the diff.
 Populate the dataModelUpdate with actual findings from your analysis.
 Include pr_url_raw in the data model so buttons can reference it.
 
+Key features:
+- Tabs for filtering by severity (All / Critical / Warning / Info) with counts in titles
+- Findings grouped by file with a file header card
+- CheckBox on each finding for selective posting
+- Modal confirmation before posting selected findings
+- GitHub links on each finding pointing to the exact file/lines
+- Data model uses nested /files/{fileKey}/findings/{findingKey} structure
+- Separate filtered lists: /findings_all, /findings_critical, /findings_warning, /findings_info
+  each containing the same nested file > findings structure but filtered by severity
+
 [
   {"surfaceUpdate": {
     "surfaceId": "review",
     "components": [
-      {"id": "root-col", "component": {"Column": {"children": {"explicitList": ["pr-title", "pr-meta", "summary-card", "divider-1", "findings-list", "divider-2", "post-all-row"]}}}},
+      {"id": "root-col", "component": {"Column": {"children": {"explicitList": ["pr-title", "pr-meta", "summary-card", "divider-1", "severity-tabs", "divider-2", "post-modal"]}}}},
       {"id": "pr-title", "component": {"Text": {"text": {"path": "/pr_title"}, "usageHint": "h1"}}},
       {"id": "pr-meta", "component": {"Text": {"text": {"path": "/pr_meta"}, "usageHint": "caption"}}},
+
       {"id": "summary-card", "component": {"Card": {"child": "summary-row"}}},
       {"id": "summary-row", "component": {"Row": {"children": {"explicitList": ["critical-col", "warning-col", "info-col"]}, "distribution": "spaceEvenly"}}},
       {"id": "critical-col", "component": {"Column": {"children": {"explicitList": ["critical-icon", "critical-count", "critical-label"]}, "alignment": "center"}}},
@@ -32,26 +43,60 @@ Include pr_url_raw in the data model so buttons can reference it.
       {"id": "info-icon", "component": {"Icon": {"name": "info"}}},
       {"id": "info-count", "component": {"Text": {"text": {"path": "/info_count"}, "usageHint": "h2"}}},
       {"id": "info-label", "component": {"Text": {"text": {"literalString": "Info"}, "usageHint": "caption"}}},
+
       {"id": "divider-1", "component": {"Divider": {}}},
-      {"id": "findings-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "finding-card", "dataBinding": "/findings"}}}}},
+
+      {"id": "severity-tabs", "component": {"Tabs": {"tabItems": [
+        {"title": {"path": "/tab_all_title"}, "child": "tab-all-content"},
+        {"title": {"path": "/tab_critical_title"}, "child": "tab-critical-content"},
+        {"title": {"path": "/tab_warning_title"}, "child": "tab-warning-content"},
+        {"title": {"path": "/tab_info_title"}, "child": "tab-info-content"}
+      ]}}},
+
+      {"id": "tab-all-content", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "file-group-card", "dataBinding": "/findings_all"}}}}},
+      {"id": "tab-critical-content", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "file-group-card", "dataBinding": "/findings_critical"}}}}},
+      {"id": "tab-warning-content", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "file-group-card", "dataBinding": "/findings_warning"}}}}},
+      {"id": "tab-info-content", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "file-group-card", "dataBinding": "/findings_info"}}}}},
+
+      {"id": "file-group-card", "component": {"Card": {"child": "file-group-col"}}},
+      {"id": "file-group-col", "component": {"Column": {"children": {"explicitList": ["file-group-header", "file-findings-list"]}}}},
+      {"id": "file-group-header", "component": {"Row": {"children": {"explicitList": ["file-icon", "file-group-name", "file-issue-count"]}, "alignment": "center"}}},
+      {"id": "file-icon", "component": {"Icon": {"name": "folder"}}},
+      {"id": "file-group-name", "weight": 1, "component": {"Text": {"text": {"path": "file_path"}, "usageHint": "h3"}}},
+      {"id": "file-issue-count", "component": {"Text": {"text": {"path": "issue_count"}, "usageHint": "caption"}}},
+
+      {"id": "file-findings-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "finding-card", "dataBinding": "findings"}}}}},
+
       {"id": "finding-card", "component": {"Card": {"child": "finding-col"}}},
       {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "finding-actions"]}}}},
-      {"id": "finding-header", "component": {"Row": {"children": {"explicitList": ["severity-icon", "file-path"]}, "alignment": "center"}}},
+      {"id": "finding-header", "component": {"Row": {"children": {"explicitList": ["finding-checkbox", "severity-icon", "finding-location", "github-link-text"]}, "alignment": "center"}}},
+      {"id": "finding-checkbox", "component": {"CheckBox": {"label": {"literalString": ""}, "value": {"path": "selected"}}}},
       {"id": "severity-icon", "component": {"Icon": {"name": {"path": "severity_icon"}}}},
-      {"id": "file-path", "weight": 1, "component": {"Text": {"text": {"path": "file_path"}, "usageHint": "h3"}}},
+      {"id": "finding-location", "weight": 1, "component": {"Text": {"text": {"path": "file_path"}, "usageHint": "h4"}}},
+      {"id": "github-link-text", "component": {"Text": {"text": {"path": "github_url"}, "usageHint": "caption"}}},
       {"id": "finding-diff", "component": {"Text": {"text": {"path": "diff_snippet"}, "usageHint": "body"}}},
       {"id": "finding-desc", "component": {"Text": {"text": {"path": "description"}, "usageHint": "body"}}},
-      {"id": "finding-actions", "component": {"Row": {"children": {"explicitList": ["post-btn", "address-btn", "dismiss-btn"]}, "distribution": "end"}}},
-      {"id": "post-text", "component": {"Text": {"text": {"literalString": "Post to PR"}}}},
-      {"id": "post-btn", "component": {"Button": {"child": "post-text", "primary": true, "action": {"name": "post_review", "context": [{"key": "prUrl", "value": {"path": "/pr_url_raw"}}, {"key": "findingId", "value": {"path": "id"}}, {"key": "filePath", "value": {"path": "file_path"}}, {"key": "description", "value": {"path": "description"}}]}}}},
+      {"id": "finding-actions", "component": {"Row": {"children": {"explicitList": ["address-btn", "dismiss-btn"]}, "distribution": "end"}}},
+
       {"id": "address-text", "component": {"Text": {"text": {"literalString": "Will Address"}}}},
       {"id": "address-btn", "component": {"Button": {"child": "address-text", "action": {"name": "address_finding", "context": [{"key": "findingId", "value": {"path": "id"}}, {"key": "filePath", "value": {"path": "file_path"}}]}}}},
       {"id": "dismiss-text", "component": {"Text": {"text": {"literalString": "Dismiss"}}}},
       {"id": "dismiss-btn", "component": {"Button": {"child": "dismiss-text", "action": {"name": "dismiss_finding", "context": [{"key": "findingId", "value": {"path": "id"}}, {"key": "filePath", "value": {"path": "file_path"}}]}}}},
+
       {"id": "divider-2", "component": {"Divider": {}}},
-      {"id": "post-all-row", "component": {"Row": {"children": {"explicitList": ["post-all-btn"]}, "distribution": "center"}}},
-      {"id": "post-all-text", "component": {"Text": {"text": {"literalString": "Post All Findings as Review"}}}},
-      {"id": "post-all-btn", "component": {"Button": {"child": "post-all-text", "primary": true, "action": {"name": "post_review", "context": [{"key": "prUrl", "value": {"path": "/pr_url_raw"}}, {"key": "findings", "value": {"path": "/findings_json"}}]}}}}
+
+      {"id": "post-modal", "component": {"Modal": {"entryPointChild": "post-selected-btn", "contentChild": "modal-content-col"}}},
+      {"id": "post-selected-text", "component": {"Text": {"text": {"path": "/post_selected_label"}}}},
+      {"id": "post-selected-btn", "component": {"Button": {"child": "post-selected-text", "primary": true}}},
+
+      {"id": "modal-content-col", "component": {"Column": {"children": {"explicitList": ["modal-title", "modal-message", "modal-actions"]}, "alignment": "stretch"}}},
+      {"id": "modal-title", "component": {"Text": {"text": {"literalString": "Post Review to GitHub?"}, "usageHint": "h3"}}},
+      {"id": "modal-message", "component": {"Text": {"text": {"path": "/modal_message"}, "usageHint": "body"}}},
+      {"id": "modal-actions", "component": {"Row": {"children": {"explicitList": ["modal-cancel-btn", "modal-confirm-btn"]}, "distribution": "end"}}},
+      {"id": "modal-cancel-text", "component": {"Text": {"text": {"literalString": "Cancel"}}}},
+      {"id": "modal-cancel-btn", "component": {"Button": {"child": "modal-cancel-text", "action": {"name": "modal_cancel"}}}},
+      {"id": "modal-confirm-text", "component": {"Text": {"text": {"literalString": "Confirm & Post"}}}},
+      {"id": "modal-confirm-btn", "component": {"Button": {"child": "modal-confirm-text", "primary": true, "action": {"name": "post_selected", "context": [{"key": "prUrl", "value": {"path": "/pr_url_raw"}}, {"key": "selectedFindings", "value": {"path": "/findings_json"}}]}}}}
     ]
   }},
   {"dataModelUpdate": {
@@ -65,22 +110,79 @@ Include pr_url_raw in the data model so buttons can reference it.
       {"key": "critical_count", "valueString": "1"},
       {"key": "warning_count", "valueString": "1"},
       {"key": "info_count", "valueString": "0"},
-      {"key": "findings", "valueMap": [
-        {"key": "finding1", "valueMap": [
-          {"key": "id", "valueString": "1"},
-          {"key": "severity_icon", "valueString": "error"},
-          {"key": "file_path", "valueString": "src/auth.py:45-52"},
-          {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
-          {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."}
+      {"key": "tab_all_title", "valueString": "All (2)"},
+      {"key": "tab_critical_title", "valueString": "Critical (1)"},
+      {"key": "tab_warning_title", "valueString": "Warning (1)"},
+      {"key": "tab_info_title", "valueString": "Info (0)"},
+      {"key": "post_selected_label", "valueString": "Post Selected (2)"},
+      {"key": "modal_message", "valueString": "2 findings will be posted as inline comments on the PR."},
+      {"key": "findings_all", "valueMap": [
+        {"key": "file_auth", "valueMap": [
+          {"key": "file_path", "valueString": "src/auth.py"},
+          {"key": "issue_count", "valueString": "1 issue"},
+          {"key": "findings", "valueMap": [
+            {"key": "f1", "valueMap": [
+              {"key": "id", "valueString": "1"},
+              {"key": "severity_icon", "valueString": "error"},
+              {"key": "file_path", "valueString": "src/auth.py:45-52"},
+              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
+              {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."},
+              {"key": "selected", "valueBoolean": true}
+            ]}
+          ]}
         ]},
-        {"key": "finding2", "valueMap": [
-          {"key": "id", "valueString": "2"},
-          {"key": "severity_icon", "valueString": "warning"},
-          {"key": "file_path", "valueString": "src/db/query.py:89-94"},
-          {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
-          {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."}
+        {"key": "file_db", "valueMap": [
+          {"key": "file_path", "valueString": "src/db/query.py"},
+          {"key": "issue_count", "valueString": "1 issue"},
+          {"key": "findings", "valueMap": [
+            {"key": "f2", "valueMap": [
+              {"key": "id", "valueString": "2"},
+              {"key": "severity_icon", "valueString": "warning"},
+              {"key": "file_path", "valueString": "src/db/query.py:89-94"},
+              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
+              {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."},
+              {"key": "selected", "valueBoolean": true}
+            ]}
+          ]}
         ]}
-      ]}
+      ]},
+      {"key": "findings_critical", "valueMap": [
+        {"key": "file_auth", "valueMap": [
+          {"key": "file_path", "valueString": "src/auth.py"},
+          {"key": "issue_count", "valueString": "1 issue"},
+          {"key": "findings", "valueMap": [
+            {"key": "f1", "valueMap": [
+              {"key": "id", "valueString": "1"},
+              {"key": "severity_icon", "valueString": "error"},
+              {"key": "file_path", "valueString": "src/auth.py:45-52"},
+              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
+              {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."},
+              {"key": "selected", "valueBoolean": true}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"key": "findings_warning", "valueMap": [
+        {"key": "file_db", "valueMap": [
+          {"key": "file_path", "valueString": "src/db/query.py"},
+          {"key": "issue_count", "valueString": "1 issue"},
+          {"key": "findings", "valueMap": [
+            {"key": "f2", "valueMap": [
+              {"key": "id", "valueString": "2"},
+              {"key": "severity_icon", "valueString": "warning"},
+              {"key": "file_path", "valueString": "src/db/query.py:89-94"},
+              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
+              {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."},
+              {"key": "selected", "valueBoolean": true}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"key": "findings_info", "valueMap": []}
     ]
   }},
   {"beginRendering": {"surfaceId": "review", "root": "root-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}

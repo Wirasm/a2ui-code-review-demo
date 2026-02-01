@@ -78,6 +78,8 @@ def fetch_pr_diff(pr_url: str, tool_context: ToolContext) -> str:
         "files_changed": meta.get("changed_files", 0),
         "additions": meta.get("additions", 0),
         "deletions": meta.get("deletions", 0),
+        "head_sha": meta.get("head", {}).get("sha", ""),
+        "base_url": f"https://github.com/{owner}/{repo}",
         "diff": diff_text,
     }
 
@@ -225,5 +227,7 @@ def _fetch_pr_files_fallback(
         "files_changed": meta.get("changed_files", 0),
         "additions": meta.get("additions", 0),
         "deletions": meta.get("deletions", 0),
+        "head_sha": meta.get("head", {}).get("sha", ""),
+        "base_url": f"https://github.com/{owner}/{repo}",
         "diff": "\n".join(diff_parts),
     })

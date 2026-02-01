@@ -65,6 +65,15 @@ export function renderComponent(
     case 'Image':
       content = renderImage(props, surface.data, scope);
       break;
+    case 'Tabs':
+      content = renderTabs(props, surface, scope);
+      break;
+    case 'Modal':
+      content = renderModal(props, surface, scope);
+      break;
+    case 'CheckBox':
+      content = renderCheckBox(props, surface, id, scope);
+      break;
     default:
       content = html`<div class="a2ui-unknown">[Unknown: ${type}]</div>`;
   }
@@ -280,6 +289,153 @@ function renderImage(
   const fit = (props.fit as string) || 'contain';
   const url = urlBinding ? String(resolveValue(urlBinding, data, scope) ?? '') : '';
   return html`<img class="a2ui-image" src=${url} style="object-fit:${fit}" />`;
+}
+
+function renderTabs(
+  props: Record<string, unknown>,
+  surface: Surface,
+  scope?: string,
+): TemplateResult {
+  const tabItems = props.tabItems as Array<{title: BoundValue; child: string}> | undefined;
+  if (!tabItems || tabItems.length === 0) return html`<div class="a2ui-tabs"></div>`;
+
+  const tabId = `tabs-${Math.random().toString(36).slice(2, 8)}`;
+
+  const handleTabClick = (index: number) => {
+    const container = document.querySelector(`[data-tab-id="${tabId}"]`);
+    if (!container) return;
+    const headers = container.querySelectorAll('.a2ui-tabs__tab');
+    const panels = container.querySelectorAll('.a2ui-tabs__panel');
+    headers.forEach((h, i) => {
+      h.classList.toggle('a2ui-tabs__tab--active', i === index);
+    });
+    panels.forEach((p, i) => {
+      p.classList.toggle('a2ui-tabs__panel--hidden', i !== index);
+    });
+  };
+
+  return html`
+    <div class="a2ui-tabs" data-tab-id=${tabId}>
+      <div class="a2ui-tabs__header">
+        ${tabItems.map((item, i) => {
+          const title = item.title ? String(resolveValue(item.title, surface.data, scope) ?? '') : '';
+          return html`
+            <button
+              class="a2ui-tabs__tab${i === 0 ? ' a2ui-tabs__tab--active' : ''}"
+              @click=${() => handleTabClick(i)}
+            >${title}</button>
+          `;
+        })}
+      </div>
+      ${tabItems.map((item, i) => html`
+        <div class="a2ui-tabs__panel${i !== 0 ? ' a2ui-tabs__panel--hidden' : ''}">
+          ${item.child ? renderComponent(item.child, surface, scope) : nothing}
+        </div>
+      `)}
+    </div>
+  `;
+}
+
+function renderModal(
+  props: Record<string, unknown>,
+  surface: Surface,
+  scope?: string,
+): TemplateResult {
+  const entryPointId = props.entryPointChild as string;
+  const contentId = props.contentChild as string;
+
+  const modalId = `modal-${Math.random().toString(36).slice(2, 8)}`;
+
+  const openModal = () => {
+    const overlay = document.querySelector(`[data-modal-id="${modalId}"]`);
+    if (overlay) (overlay as HTMLElement).style.display = 'flex';
+  };
+
+  const closeModal = () => {
+    const overlay = document.querySelector(`[data-modal-id="${modalId}"]`);
+    if (overlay) (overlay as HTMLElement).style.display = 'none';
+  };
+
+  const handleBackdropClick = (e: Event) => {
+    if (e.target === e.currentTarget) closeModal();
+  };
+
+  // Listen for modal_cancel action to close the modal
+  const handleAction = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (detail?.name === 'modal_cancel') {
+      closeModal();
+      e.stopPropagation();
+    }
+  };
+
+  return html`
+    <div class="a2ui-modal" @a2ui-action=${handleAction}>
+      <div @click=${openModal}>
+        ${entryPointId ? renderComponent(entryPointId, surface, scope) : nothing}
+      </div>
+      <div class="a2ui-modal-overlay" data-modal-id=${modalId} style="display:none" @click=${handleBackdropClick}>
+        <div class="a2ui-modal-content">
+          ${contentId ? renderComponent(contentId, surface, scope) : nothing}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCheckBox(
+  props: Record<string, unknown>,
+  surface: Surface,
+  componentId: string,
+  scope?: string,
+): TemplateResult {
+  const labelBinding = props.label as BoundValue | undefined;
+  const valueBinding = props.value as BoundValue | undefined;
+  const label = labelBinding ? String(resolveValue(labelBinding, surface.data, scope) ?? '') : '';
+  const checked = valueBinding ? Boolean(resolveValue(valueBinding, surface.data, scope)) : false;
+
+  const handleChange = (e: Event) => {
+    const newChecked = (e.target as HTMLInputElement).checked;
+
+    // Update local data model if value has a path binding
+    if (valueBinding && 'path' in valueBinding) {
+      const p = valueBinding.path;
+      const fullPath = p.startsWith('/') ? p : (scope ? `${scope}/${p}` : p);
+      const segments = fullPath.replace(/^\//, '').split('/').filter(Boolean);
+      let current: Record<string, unknown> = surface.data;
+      for (let i = 0; i < segments.length - 1; i++) {
+        const seg = segments[i];
+        if (current[seg] == null || typeof current[seg] !== 'object') {
+          current[seg] = {};
+        }
+        current = current[seg] as Record<string, unknown>;
+      }
+      current[segments[segments.length - 1]] = newChecked;
+    }
+
+    // Dispatch action to server
+    const event = new CustomEvent('a2ui-action', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        name: 'toggle_finding',
+        sourceComponentId: componentId,
+        surfaceId: surface.surfaceId,
+        context: {
+          findingId: resolveValue({path: 'id'} as BoundValue, surface.data, scope),
+          selected: newChecked,
+        },
+      },
+    });
+    document.dispatchEvent(event);
+  };
+
+  return html`
+    <label class="a2ui-checkbox">
+      <input type="checkbox" .checked=${checked} @change=${handleChange} />
+      ${label ? html`<span class="a2ui-checkbox__label">${label}</span>` : nothing}
+    </label>
+  `;
 }
 
 function renderChildren(
