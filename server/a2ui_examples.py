@@ -72,7 +72,7 @@ Key features:
       {"id": "file-findings-list", "component": {"List": {"direction": "vertical", "children": {"template": {"componentId": "finding-card", "dataBinding": "findings"}}}}},
 
       {"id": "finding-card", "component": {"Card": {"child": "finding-col"}}},
-      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc"]}}}},
+      {"id": "finding-col", "component": {"Column": {"children": {"explicitList": ["finding-header", "finding-diff", "finding-desc", "finding-actions"]}}}},
       {"id": "finding-header", "component": {"Row": {"children": {"explicitList": ["finding-checkbox", "severity-icon", "finding-location", "github-link-text"]}, "alignment": "center"}}},
       {"id": "finding-checkbox", "component": {"CheckBox": {"label": {"literalString": ""}, "value": {"path": "selected"}}}},
       {"id": "severity-icon", "component": {"Icon": {"name": {"path": "severity_icon"}}}},
@@ -80,6 +80,11 @@ Key features:
       {"id": "github-link-text", "component": {"Text": {"text": {"path": "github_url"}, "usageHint": "caption"}}},
       {"id": "finding-diff", "component": {"Text": {"text": {"path": "diff_snippet"}, "usageHint": "body"}}},
       {"id": "finding-desc", "component": {"Text": {"text": {"path": "description"}, "usageHint": "body"}}},
+      {"id": "finding-actions", "component": {"Row": {"children": {"explicitList": ["create-issue-btn", "address-btn"]}, "distribution": "end"}}},
+      {"id": "create-issue-text", "component": {"Text": {"text": {"literalString": "Create Issue"}}}},
+      {"id": "create-issue-btn", "component": {"Button": {"child": "create-issue-text", "action": {"name": "create_issue", "context": [{"key": "description", "value": {"path": "description"}}, {"key": "filePath", "value": {"path": "file_path"}}, {"key": "prUrl", "value": {"path": "/pr_url_raw"}}]}}}},
+      {"id": "address-text", "component": {"Text": {"text": {"literalString": "Address"}}}},
+      {"id": "address-btn", "component": {"Button": {"child": "address-text", "action": {"name": "address_finding", "context": [{"key": "description", "value": {"path": "description"}}, {"key": "filePath", "value": {"path": "file_path"}}, {"key": "prUrl", "value": {"path": "/pr_url_raw"}}]}}}},
       {"id": "divider-2", "component": {"Divider": {}}},
 
       {"id": "post-modal", "component": {"Modal": {"entryPointChild": "post-selected-btn", "contentChild": "modal-content-col"}}},
@@ -289,4 +294,73 @@ IMPORTANT: Use surfaceId "review" to replace the existing review dashboard in-pl
   {"beginRendering": {"surfaceId": "review", "root": "result-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
 ]
 ---END POST_REVIEW_RESULT_EXAMPLE---
+
+---BEGIN ISSUE_FORM_EXAMPLE---
+Use this template when the user clicks "Create Issue" on a finding.
+Show a form with editable title, body (longText), and label picker (MultipleChoice).
+IMPORTANT: Use surfaceId "review" to replace the dashboard temporarily.
+The labels should come from the fetch_repo_labels tool result.
+If no labels are available, omit the labels-choice component from the form.
+
+[
+  {"surfaceUpdate": {
+    "surfaceId": "review",
+    "components": [
+      {"id": "issue-form-col", "component": {"Column": {"children": {"explicitList": ["form-title", "title-field", "body-field", "labels-heading", "labels-choice", "form-actions"]}, "alignment": "stretch"}}},
+      {"id": "form-title", "component": {"Text": {"text": {"literalString": "Create Issue"}, "usageHint": "h2"}}},
+      {"id": "title-field", "component": {"TextField": {"label": {"literalString": "Title"}, "text": {"path": "/issue_title"}, "textFieldType": "shortText"}}},
+      {"id": "body-field", "component": {"TextField": {"label": {"literalString": "Body"}, "text": {"path": "/issue_body"}, "textFieldType": "longText"}}},
+      {"id": "labels-heading", "component": {"Text": {"text": {"literalString": "Labels"}, "usageHint": "h4"}}},
+      {"id": "labels-choice", "component": {"MultipleChoice": {"selections": {"path": "/issue_labels"}, "options": [{"key": {"literalString": "bug"}, "label": {"literalString": "bug"}}, {"key": {"literalString": "enhancement"}, "label": {"literalString": "enhancement"}}]}}},
+      {"id": "form-actions", "component": {"Row": {"children": {"explicitList": ["form-cancel-btn", "form-submit-btn"]}, "distribution": "end"}}},
+      {"id": "form-cancel-text", "component": {"Text": {"text": {"literalString": "Cancel"}}}},
+      {"id": "form-cancel-btn", "component": {"Button": {"child": "form-cancel-text", "action": {"name": "modal_cancel"}}}},
+      {"id": "form-submit-text", "component": {"Text": {"text": {"literalString": "Create Issue"}}}},
+      {"id": "form-submit-btn", "component": {"Button": {"child": "form-submit-text", "primary": true, "action": {"name": "create_issue_submit", "context": [{"key": "prUrl", "value": {"path": "/pr_url_raw"}}, {"key": "title", "value": {"path": "/issue_title"}}, {"key": "body", "value": {"path": "/issue_body"}}, {"key": "labels", "value": {"path": "/issue_labels"}}]}}}}
+    ]
+  }},
+  {"dataModelUpdate": {
+    "surfaceId": "review",
+    "path": "/",
+    "contents": [
+      {"key": "pr_url_raw", "valueString": "https://github.com/owner/repo/pull/42"},
+      {"key": "issue_title", "valueString": "Fix: Missing null check in src/auth.py:45"},
+      {"key": "issue_body", "valueString": "Found during code review.\\n\\nMissing explicit null check. `if user` evaluates falsy for empty strings and zero.\\n\\nFile: src/auth.py:45-52"},
+      {"key": "issue_labels", "valueMap": []}
+    ]
+  }},
+  {"beginRendering": {"surfaceId": "review", "root": "issue-form-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
+]
+---END ISSUE_FORM_EXAMPLE---
+
+---BEGIN ISSUE_RESULT_EXAMPLE---
+Use this template after successfully creating a GitHub issue via the create_github_issue tool.
+Show the issue URL and number. IMPORTANT: Use surfaceId "review" and root "issue-result-col".
+
+[
+  {"surfaceUpdate": {
+    "surfaceId": "review",
+    "components": [
+      {"id": "issue-result-col", "component": {"Column": {"children": {"explicitList": ["issue-result-card"]}}}},
+      {"id": "issue-result-card", "component": {"Card": {"child": "issue-result-card-col"}}},
+      {"id": "issue-result-card-col", "component": {"Column": {"children": {"explicitList": ["issue-result-icon-row", "issue-result-message", "issue-result-link"]}}}},
+      {"id": "issue-result-icon-row", "component": {"Row": {"children": {"explicitList": ["issue-result-icon", "issue-result-title"]}, "alignment": "center"}}},
+      {"id": "issue-result-icon", "component": {"Icon": {"name": "check"}}},
+      {"id": "issue-result-title", "component": {"Text": {"text": {"path": "/result_title"}, "usageHint": "h2"}}},
+      {"id": "issue-result-message", "component": {"Text": {"text": {"path": "/result_message"}, "usageHint": "body"}}},
+      {"id": "issue-result-link", "component": {"Text": {"text": {"path": "/result_link"}, "usageHint": "caption"}}}
+    ]
+  }},
+  {"dataModelUpdate": {
+    "surfaceId": "review",
+    "path": "/",
+    "contents": [
+      {"key": "result_title", "valueString": "Issue Created"},
+      {"key": "result_message", "valueString": "Created issue #45 on the repository."},
+      {"key": "result_link", "valueString": "https://github.com/owner/repo/issues/45"}
+    ]
+  }},
+  {"beginRendering": {"surfaceId": "review", "root": "issue-result-col", "styles": {"primaryColor": "#1a73e8", "font": "Roboto"}}}
+]
+---END ISSUE_RESULT_EXAMPLE---
 """

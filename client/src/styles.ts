@@ -426,6 +426,68 @@ export const appStyles = css`
     text-align: center;
   }
 
+  /* TextField */
+  .a2ui-textfield {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .a2ui-textfield__label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1a1a2e;
+  }
+
+  .a2ui-textfield__input {
+    padding: 8px 12px;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .a2ui-textfield__input:focus {
+    border-color: #1a73e8;
+  }
+
+  textarea.a2ui-textfield__input {
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  /* MultipleChoice */
+  .a2ui-multiple-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .a2ui-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #d0d0d0;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    user-select: none;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .a2ui-choice:has(input:checked) {
+    background: #e8f0fe;
+    border-color: #1a73e8;
+    color: #1a73e8;
+  }
+
+  .a2ui-choice input {
+    display: none;
+  }
+
   /* Multi-surface layout */
   .surfaces-layout {
     display: grid;

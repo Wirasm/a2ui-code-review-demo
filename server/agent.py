@@ -21,7 +21,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from a2ui_schema import A2UI_SCHEMA
 from prompt_builder import get_text_prompt, get_ui_prompt
-from tools import fetch_pr_diff, post_github_review
+from tools import fetch_pr_diff, post_github_review, create_github_issue, post_address_comment, fetch_repo_labels
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,16 @@ SEVERITY LEVELS:
 - Use icon "error" for critical issues (security, data loss)
 - Use icon "warning" for bugs, logic issues, silent failures
 - Use icon "info" for minor suggestions, style improvements
+
+6. When the user wants to create a GitHub issue from a finding, first call `fetch_repo_labels`
+   to get available labels, then show the ISSUE_FORM_EXAMPLE template with pre-filled title and body,
+   and the labels as MultipleChoice options.
+7. When the user submits the issue form ("create_issue_submit"), call `create_github_issue`
+   with the PR URL, title, body, and selected labels. Then show a confirmation using
+   the ISSUE_RESULT_EXAMPLE template.
+8. When the user wants to mark a finding as "address before merge", call `post_address_comment`
+   with the PR URL, finding description, and file path. Then show a confirmation using
+   the POST_REVIEW_RESULT_EXAMPLE template.
 
 When the user clicks "Will Address" or "Dismiss" on a finding, acknowledge their
 decision and show a brief confirmation.
@@ -100,7 +110,7 @@ class CodeReviewAgent:
             name="code_review_agent",
             description="An agent that reviews GitHub PRs and identifies critical code issues.",
             instruction=instruction,
-            tools=[fetch_pr_diff, post_github_review],
+            tools=[fetch_pr_diff, post_github_review, create_github_issue, post_address_comment, fetch_repo_labels],
         )
 
     async def stream(self, query: str, session_id: str) -> AsyncIterable[dict[str, Any]]:
