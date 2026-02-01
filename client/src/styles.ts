@@ -166,6 +166,16 @@ export const appStyles = css`
     margin: 0;
   }
 
+  .a2ui-text--link {
+    color: #1a73e8;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .a2ui-text--link:hover {
+    text-decoration: underline;
+  }
+
   .a2ui-column {
     display: flex;
     flex-direction: column;

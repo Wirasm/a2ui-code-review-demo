@@ -156,10 +156,9 @@ def post_github_review(
         comment: dict[str, str | int] = {
             "path": path,
             "body": f"{severity_prefix}{description}",
-            "side": "RIGHT",
         }
         if line is not None:
-            comment["line"] = line
+            comment["position"] = line
 
         comments.append(comment)
 

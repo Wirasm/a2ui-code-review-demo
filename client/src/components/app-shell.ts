@@ -58,6 +58,14 @@ export class AppShell extends LitElement {
 
     if (!this.client || !this.contextId || !this.taskId) return;
 
+    // Compute selected findings at dispatch time (data model string may be stale)
+    if (detail.name === 'post_selected') {
+      const surface = this.surfaceManager.getSurface(detail.surfaceId);
+      if (surface) {
+        detail.context.selectedFindings = JSON.stringify(this.collectSelectedFindings(surface));
+      }
+    }
+
     const action: UserAction = {
       name: detail.name,
       surfaceId: detail.surfaceId,
@@ -104,6 +112,27 @@ export class AppShell extends LitElement {
 
     surface.data.post_selected_label = `Post Selected (${count})`;
     surface.data.modal_message = `${count} finding${count !== 1 ? 's' : ''} will be posted as inline comments on the PR.`;
+  }
+
+  private collectSelectedFindings(surface: Surface): Array<Record<string, unknown>> {
+    const findings: Array<Record<string, unknown>> = [];
+    const findingsAll = surface.data.findings_all;
+    if (!findingsAll || typeof findingsAll !== 'object') return findings;
+    for (const fileGroup of Object.values(findingsAll as Record<string, Record<string, unknown>>)) {
+      const fileFindings = fileGroup.findings;
+      if (!fileFindings || typeof fileFindings !== 'object') continue;
+      for (const finding of Object.values(fileFindings as Record<string, Record<string, unknown>>)) {
+        if (finding.selected) {
+          findings.push({
+            id: finding.id,
+            severity_icon: finding.severity_icon,
+            file_path: finding.file_path,
+            description: finding.description,
+          });
+        }
+      }
+    }
+    return findings;
   }
 
   private async handleSubmit(): Promise<void> {

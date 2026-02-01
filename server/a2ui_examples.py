@@ -118,7 +118,7 @@ Key features:
               {"key": "id", "valueString": "1"},
               {"key": "severity_icon", "valueString": "error"},
               {"key": "file_path", "valueString": "src/auth.py:45-52"},
-              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
               {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."},
               {"key": "selected", "valueBoolean": true}
@@ -133,7 +133,7 @@ Key features:
               {"key": "id", "valueString": "2"},
               {"key": "severity_icon", "valueString": "warning"},
               {"key": "file_path", "valueString": "src/db/query.py:89-94"},
-              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
               {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."},
               {"key": "selected", "valueBoolean": true}
@@ -150,7 +150,7 @@ Key features:
               {"key": "id", "valueString": "1"},
               {"key": "severity_icon", "valueString": "error"},
               {"key": "file_path", "valueString": "src/auth.py:45-52"},
-              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "- if user:\\n+ if user is not None:"},
               {"key": "description", "valueString": "Missing explicit null check. `if user` evaluates falsy for empty strings and zero, potentially allowing unauthorized access."},
               {"key": "selected", "valueBoolean": true}
@@ -167,7 +167,7 @@ Key features:
               {"key": "id", "valueString": "2"},
               {"key": "severity_icon", "valueString": "warning"},
               {"key": "file_path", "valueString": "src/db/query.py:89-94"},
-              {"key": "github_url", "valueString": "View on GitHub"},
+              {"key": "github_url", "valueString": "https://github.com/owner/repo/blob/abc123/src/auth.py#L45-L52"},
               {"key": "diff_snippet", "valueString": "+ query = \\"SELECT * FROM users WHERE id = \\" + str(user_id)"},
               {"key": "description", "valueString": "Potential SQL injection via string concatenation. Use parameterized queries instead."},
               {"key": "selected", "valueBoolean": true}

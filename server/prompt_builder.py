@@ -60,8 +60,7 @@ To generate the response, you MUST follow these rules:
 --- GITHUB LINKS ---
 - Use the base_url and head_sha from the fetch_pr_diff tool result to construct GitHub URLs.
 - Format: BASE_URL/blob/HEAD_SHA/FILE_PATH#Lstart-Lend
-- Store the URL in each finding's github_url field as display text (e.g., "View on GitHub").
-- The client renders github_url text with caption styling.
+- Store the full URL in each finding's github_url field (the client renders it as a clickable link).
 
 {CODE_REVIEW_EXAMPLES}
 

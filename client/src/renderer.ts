@@ -129,6 +129,11 @@ function renderText(
     return renderDiffBlock(text);
   }
 
+  if (text.startsWith('https://') || text.startsWith('http://')) {
+    const label = text.includes('github.com') ? 'View on GitHub' : text;
+    return html`<a class="a2ui-text a2ui-text--${usageHint} a2ui-text--link" href=${text} target="_blank" rel="noopener noreferrer">${label}</a>`;
+  }
+
   return html`<div class="a2ui-text a2ui-text--${usageHint}">${text}</div>`;
 }
 
@@ -227,7 +232,7 @@ function renderButton(
   const action = props.action as Action | undefined;
   const className = primary ? 'a2ui-button a2ui-button--primary' : 'a2ui-button';
 
-  const handleClick = () => {
+  const handleClick = (e: Event) => {
     if (!action) return;
     const resolvedContext: Record<string, unknown> = {};
     if (action.context) {
@@ -235,7 +240,7 @@ function renderButton(
         resolvedContext[item.key] = resolveValue(item.value, surface.data, scope);
       }
     }
-    const event = new CustomEvent('a2ui-action', {
+    const customEvent = new CustomEvent('a2ui-action', {
       bubbles: true,
       composed: true,
       detail: {
@@ -245,7 +250,7 @@ function renderButton(
         context: resolvedContext,
       },
     });
-    document.dispatchEvent(event);
+    (e.currentTarget as HTMLElement).dispatchEvent(customEvent);
   };
 
   return html`
